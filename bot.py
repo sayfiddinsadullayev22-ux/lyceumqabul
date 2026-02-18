@@ -1,12 +1,14 @@
 import asyncio
 import sqlite3
-import os
 from aiogram import Bot, Dispatcher, F
 from aiogram.types import Message, CallbackQuery
 from aiogram.filters import CommandStart
 from aiogram.utils.keyboard import InlineKeyboardBuilder
 
-TOKEN = os.getenv("TOKEN")  # Render uchun
+# ====================================
+# BU YERGA BOTFATHER DAN OLINGAN YANGI TOKENNI QO'YING
+# ====================================
+TOKEN = "8246098957:AAGtD7OGaD4ThJVGlJM6SSlLkGZ37JV5SY0"
 
 CHANNEL_1 = "@lyceumverse"
 CHANNEL_2 = "@Mirzokhid_blog"
@@ -33,7 +35,6 @@ CREATE TABLE IF NOT EXISTS users (
 )
 """)
 
-# bu jadval user kim orqali kirganini saqlaydi
 cursor.execute("""
 CREATE TABLE IF NOT EXISTS invites (
     user_id INTEGER PRIMARY KEY,
@@ -157,7 +158,6 @@ async def start_handler(message: Message):
             if ref_id != user_id:
                 add_user(ref_id)
 
-                # user oldin invite orqali kirganmi tekshiramiz
                 if not has_invite(user_id):
                     save_invite(user_id, ref_id)
                     add_points(ref_id, 1)
@@ -170,7 +170,7 @@ async def start_handler(message: Message):
             "👋 Assalomu alaykum!\n\n"
             "Botdan foydalanish uchun quyidagilarga obuna bo‘ling:\n\n"
             "✅ Telegram kanallar\n"
-            "⚠️ Instagramni bot tekshira olmaydi (faqat link)\n\n"
+            "⚠️ Admin hammasini tekshiradi (faqat link)\n\n"
             "Obuna bo‘lgach pastdagi tugmani bosing:",
             reply_markup=subscribe_keyboard()
         )
@@ -276,10 +276,6 @@ async def webinar_handler(call: CallbackQuery):
 # RUN
 # ==========================
 async def main():
-    if not TOKEN:
-        print("TOKEN topilmadi! Render Environment variable qo'y!")
-        return
-
     print("Bot ishga tushdi...")
     await dp.start_polling(bot)
 
