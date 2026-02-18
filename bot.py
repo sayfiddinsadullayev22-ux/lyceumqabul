@@ -8,8 +8,11 @@ from aiogram.utils.keyboard import InlineKeyboardBuilder
 # ====================================
 # BU YERGA BOTFATHER DAN OLINGAN YANGI TOKENNI QO'YING
 # ====================================
-TOKEN = "8246098957:AAGtD7OGaD4ThJVGlJM6SSlLkGZ37JV5SY0"
 
+import os
+
+TOKEN = os.getenv("BOT_TOKEN")   # Railway Variables’dan o‘qiydi
+bot = Bot(token=TOKEN)
 CHANNEL_1 = "@lyceumverse"
 CHANNEL_2 = "@Mirzokhid_blog"
 
