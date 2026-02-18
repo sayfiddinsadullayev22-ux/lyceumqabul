@@ -6,7 +6,7 @@ from aiogram.types import Message, CallbackQuery
 from aiogram.filters import CommandStart
 from aiogram.utils.keyboard import InlineKeyboardBuilder
 
-TOKEN = os.getenv("TOKEN")  # Render uchun
+TOKEN = os.getenv("TOKEN")  # Railway Variables ichida TOKEN qo'yasan
 
 CHANNEL_1 = "@lyceumverse"
 CHANNEL_2 = "@Mirzokhid_blog"
@@ -16,11 +16,14 @@ INSTAGRAM_URL = "https://www.instagram.com/_mirzokh1d?igsh=MXF0Z2F3ZmZjMnI1dQ=="
 WEBINAR_LINK = "https://example.com/webinar"
 NEEDED_POINTS = 5
 
+if not TOKEN:
+    raise ValueError("TOKEN topilmadi! Railway Variables ichiga TOKEN qo'y!")
+
 bot = Bot(token=TOKEN)
 dp = Dispatcher()
 
 # ==========================
-# DATABASE
+# DATABASE (Railway uchun)
 # ==========================
 db = sqlite3.connect("users.db")
 cursor = db.cursor()
@@ -33,7 +36,6 @@ CREATE TABLE IF NOT EXISTS users (
 )
 """)
 
-# bu jadval user kim orqali kirganini saqlaydi
 cursor.execute("""
 CREATE TABLE IF NOT EXISTS invites (
     user_id INTEGER PRIMARY KEY,
@@ -54,7 +56,7 @@ def add_user(user_id: int):
 
 def get_user(user_id: int):
     cursor.execute("SELECT points, referrals FROM users WHERE user_id=?", (user_id,))
-    return cursor.fetchone()
+    return cursor.fetchone() or (0, 0)
 
 
 def add_points(user_id: int, amount: int = 1):
@@ -73,7 +75,10 @@ def has_invite(user_id: int):
 
 
 def save_invite(user_id: int, invited_by: int):
-    cursor.execute("INSERT OR IGNORE INTO invites (user_id, invited_by) VALUES (?, ?)", (user_id, invited_by))
+    cursor.execute(
+        "INSERT OR IGNORE INTO invites (user_id, invited_by) VALUES (?, ?)",
+        (user_id, invited_by)
+    )
     db.commit()
 
 
@@ -147,7 +152,6 @@ async def start_handler(message: Message):
 
     args = message.text.split()
 
-    # referral ishlashi
     if len(args) > 1:
         ref_id = args[1]
 
@@ -157,7 +161,6 @@ async def start_handler(message: Message):
             if ref_id != user_id:
                 add_user(ref_id)
 
-                # user oldin invite orqali kirganmi tekshiramiz
                 if not has_invite(user_id):
                     save_invite(user_id, ref_id)
                     add_points(ref_id, 1)
@@ -170,7 +173,7 @@ async def start_handler(message: Message):
             "👋 Assalomu alaykum!\n\n"
             "Botdan foydalanish uchun quyidagilarga obuna bo‘ling:\n\n"
             "✅ Telegram kanallar\n"
-            "⚠️ Ushbu bot avtomatik tekshiriladi (faqat link)\n\n"
+            "⚠️ Instagram avtomatik tekshirilmaydi (faqat link)\n\n"
             "Obuna bo‘lgach pastdagi tugmani bosing:",
             reply_markup=subscribe_keyboard()
         )
@@ -276,10 +279,6 @@ async def webinar_handler(call: CallbackQuery):
 # RUN
 # ==========================
 async def main():
-    if not TOKEN:
-        print("TOKEN topilmadi! Render Environment variable qo'y!")
-        return
-
     print("Bot ishga tushdi...")
     await dp.start_polling(bot)
 
