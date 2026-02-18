@@ -6,7 +6,7 @@ from aiogram.types import Message, CallbackQuery
 from aiogram.filters import CommandStart
 from aiogram.utils.keyboard import InlineKeyboardBuilder
 
-TOKEN = os.getenv("TOKEN")  # Railway Variables ichida TOKEN qo'yasan
+TOKEN = os.getenv("BOT_TOKEN")  # Railway Variables ichida TOKEN qo'yasan
 
 CHANNEL_1 = "@lyceumverse"
 CHANNEL_2 = "@Mirzokhid_blog"
