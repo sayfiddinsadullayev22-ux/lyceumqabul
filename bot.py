@@ -9,7 +9,7 @@ from aiogram.utils.keyboard import InlineKeyboardBuilder
 from openpyxl import Workbook
 
 # ================= CONFIG =================
-TOKEN = "8674720299:AAGcfBICYUOql6SUEeSCYmPJWfkFG3dw4Ys"
+TOKEN = "8246098957:AAGtD7OGaD4ThJVGlJM6SSlLkGZ37JV5SY0"
 ADMIN_IDS = [7618889413 , 5541894729]  # Admin ID yoz
 CHANNELS = ["@Mirzokhid_blog", "@lyceumverse"]  # Kanallar
 WEBINAR_LINK = "https://t.me/yourlink"
