@@ -16,7 +16,6 @@ ADMIN_IDS = [7618889413, 5541894729]  # adminlar ID si
 # ==========================
 CHANNEL_1 = "@lyceumverse"
 CHANNEL_2 = "@Mirzokhid_blog"
-INSTAGRAM_URL = "https://www.instagram.com/_mirzokh1d?igsh=MXF0Z2F3ZmZjMnI1dQ=="
 WEBINAR_LINK = "https://example.com/webinar"
 
 NEEDED_POINTS = 2  # Webinar ochish uchun kerakli ball
@@ -91,7 +90,6 @@ def subscribe_keyboard():
     kb = InlineKeyboardBuilder()
     kb.button(text="📢 Lyceumverse", url="https://t.me/lyceumverse")
     kb.button(text="📢 Mirzokhid Blog", url="https://t.me/Mirzokhid_blog")
-    kb.button(text="📸 Instagram", url=INSTAGRAM_URL)
     kb.button(text="✅ Tekshirish", callback_data="check_sub")
     kb.adjust(1)
     return kb.as_markup()
@@ -101,7 +99,7 @@ def main_menu():
     kb = InlineKeyboardBuilder()
     kb.button(text="👤 Profilim", callback_data="profile")
     kb.button(text="🎁 Referal", callback_data="referral")
-    kb.button(text="🎥 Vebinar", callback_data="webinar")
+    kb.button(text="🎥 Webinar", callback_data="webinar")
     kb.adjust(2, 1)
     return kb.as_markup()
 
@@ -152,9 +150,7 @@ async def start_handler(message: Message):
     user_id = message.from_user.id
     add_user(user_id)
 
-    # ==========================
     # Referal tizimi (ball bermaymiz)
-    # ==========================
     args = message.text.split()
     ref_info = "Referal orqali kelmagan"
     if len(args) > 1 and args[1].isdigit() and int(args[1]) != user_id:
@@ -164,44 +160,38 @@ async def start_handler(message: Message):
             save_invite(user_id, ref_id)
             ref_info = f"Referal orqali keldi (ref ID: {ref_id})"
 
-    # ==========================
     # Jami foydalanuvchilar soni
-    # ==========================
     cursor.execute("SELECT COUNT(*) FROM users")
     user_count = cursor.fetchone()[0]
 
-    # ==========================
     # Adminga xabar
-    # ==========================
     for admin_id in ADMIN_IDS:
         await bot.send_message(
             admin_id,
-            f"🆕 Yangi foydalanuvchi kelib qo‘shildi!\n\n"
-            f"ID: {user_id}\n"
+            f"🎉 Yangi foydalanuvchi qo‘shildi!\n\n"
+            f"👤 ID: {user_id}\n"
             f"Username: @{message.from_user.username or 'No username'}\n"
             f"{ref_info}\n"
             f"👥 Botdagi jami foydalanuvchilar: {user_count}"
         )
 
-    # ==========================
     # Foydalanuvchiga xabar
-    # ==========================
     is_sub = await check_subscription(user_id)
 
     if not is_sub:
         await message.answer(
             "👋 Assalomu alaykum!\n\n"
-            "Botdan foydalanish uchun quyidagilarga obuna bo‘ling:\n\n"
-            "✅ Telegram kanallar\n"
-            "⚠️ Instagram avtomatik tekshirilmaydi (faqat link)\n\n"
+            "Botdan foydalanish uchun quyidagi Telegram kanallarga obuna bo‘ling:\n\n"
+            "✅ Lyceumverse\n"
+            "✅ Mirzokhid Blog\n\n"
             "Obuna bo‘lgach pastdagi tugmani bosing:",
             reply_markup=subscribe_keyboard()
         )
     else:
         await message.answer(
-            "🎉 Xush kelibsiz!\n\n"
+            "🎉 Xush kelibsiz!\n"
             "Siz muvaffaqiyatli obuna bo‘ldingiz.\n"
-            "Quyidagi menyudan foydalaning:",
+            "Quyidagi menyudan tanlang:",
             reply_markup=main_menu()
         )
 
@@ -214,7 +204,10 @@ async def stats_handler(message: Message):
     if message.from_user.id not in ADMIN_IDS:
         return  # Faqat adminlar
 
-    cursor.execute("SELECT u.user_id, u.points, u.referrals, i.invited_by FROM users u LEFT JOIN invites i ON u.user_id=i.user_id")
+    cursor.execute(
+        "SELECT u.user_id, u.points, u.referrals, i.invited_by "
+        "FROM users u LEFT JOIN invites i ON u.user_id=i.user_id"
+    )
     users = cursor.fetchall()
 
     total_users = len(users)
@@ -238,11 +231,11 @@ async def check_sub_handler(call: CallbackQuery):
     if is_sub:
         await call.message.edit_text(
             "🎉 Obuna tasdiqlandi!\n\n"
-            "Endi botdan foydalanishingiz mumkin:",
+            "Endi botdan foydalanishingiz mumkin 🙂",
             reply_markup=main_menu()
         )
     else:
-        await call.answer("❌ Hali ham Telegram kanallarga obuna bo‘lmagansiz!", show_alert=True)
+        await call.answer("❌ Siz hali ham kanallarga obuna bo‘lmagansiz!", show_alert=True)
 
 
 # ==========================
@@ -262,10 +255,10 @@ async def profile_handler(call: CallbackQuery):
     points, referrals = get_user(user_id)
 
     await call.message.edit_text(
-        f"👤 Profilingiz:\n\n"
-        f"⭐ Ball: {points}\n"
-        f"👥 Referallar: {referrals}\n\n"
-        f"📌 Har 1 referal = 1 ball",
+        f"👋 Salom, @{call.from_user.username or 'user'}!\n"
+        f"⭐ Ballingiz: {points}\n"
+        f"👥 Do‘stlaringiz: {referrals}\n\n"
+        f"📌 Har bir yangi do‘st sizga ball beradi (hozir referal berilmaydi).",
         reply_markup=back_menu()
     )
 
@@ -282,8 +275,7 @@ async def referral_handler(call: CallbackQuery):
 
     await call.message.edit_text(
         f"🎁 Referal tizimi (ball berilmaydi):\n\n"
-        f"🔗 Sizning referal linkingiz:\n\n"
-        f"{referral_link}\n\n"
+        f"🔗 Sizning referal linkingiz:\n{referral_link}\n\n"
         f"📤 Do‘stlaringizga ulashing!",
         reply_markup=back_menu()
     )
@@ -299,18 +291,17 @@ async def webinar_handler(call: CallbackQuery):
 
     if points >= NEEDED_POINTS:
         await call.message.edit_text(
-            "🎥 Sizda yetarli ball bor!\n\n"
+            "🎥 Sizda yetarli ball bor!\n"
             "Webinar havolasi quyida:",
             reply_markup=webinar_link_keyboard()
         )
     else:
         need = NEEDED_POINTS - points
         await call.message.edit_text(
-            f"❌ Sizda yetarli ball yo‘q.\n\n"
-            f"⭐ Hozirgi ball: {points}\n"
-            f"🎯 Kerakli ball: {NEEDED_POINTS}\n"
-            f"📌 Yetishmayapti: {need} ball\n\n"
-            f"Ball yig‘ish uchun boshqa faoliyatlardan foydalaning.",
+            f"😌 Hozirgi ballingiz: {points}\n"
+            f"Webinar uchun kerak: {NEEDED_POINTS}\n"
+            f"⭐ Sizga {need} ball yetishmayapti.\n\n"
+            f"Ball to‘plash uchun boshqa imkoniyatlardan foydalaning.",
             reply_markup=referral_button()
         )
 
