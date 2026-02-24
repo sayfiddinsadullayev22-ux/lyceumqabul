@@ -156,6 +156,26 @@ async def start_handler(message: Message):
     add_user(user_id)
 
     # ==========================
+    # Referal tizimi
+    # ==========================
+    args = message.text.split()
+    ref_info = "Referal orqali kelmagan"
+    if len(args) > 1 and args[1].isdigit() and int(args[1]) != user_id:
+        ref_id = int(args[1])
+        add_user(ref_id)
+        if not has_invite(user_id):
+            save_invite(user_id, ref_id)
+            add_points(ref_id, 1)
+            add_referral_count(ref_id)
+            ref_info = f"Referal orqali keldi (ref ID: {ref_id})"
+
+    # ==========================
+    # Jami foydalanuvchilar soni
+    # ==========================
+    cursor.execute("SELECT COUNT(*) FROM users")
+    user_count = cursor.fetchone()[0]
+
+    # ==========================
     # Adminga xabar
     # ==========================
     for admin_id in ADMIN_IDS:
@@ -163,24 +183,14 @@ async def start_handler(message: Message):
             admin_id,
             f"🆕 Yangi foydalanuvchi kelib qo‘shildi!\n\n"
             f"ID: {user_id}\n"
-            f"Username: @{message.from_user.username or 'No username'}"
+            f"Username: @{message.from_user.username or 'No username'}\n"
+            f"{ref_info}\n"
+            f"👥 Botdagi jami foydalanuvchilar: {user_count}"
         )
 
     # ==========================
-    # Referal tizimi
+    # Foydalanuvchiga xabar
     # ==========================
-    args = message.text.split()
-    if len(args) > 1:
-        ref_id = args[1]
-        if ref_id.isdigit():
-            ref_id = int(ref_id)
-            if ref_id != user_id:
-                add_user(ref_id)
-                if not has_invite(user_id):
-                    save_invite(user_id, ref_id)
-                    add_points(ref_id, 1)
-                    add_referral_count(ref_id)
-
     is_sub = await check_subscription(user_id)
 
     if not is_sub:
@@ -199,6 +209,28 @@ async def start_handler(message: Message):
             "Quyidagi menyudan foydalaning:",
             reply_markup=main_menu()
         )
+
+
+# ==========================
+# ADMIN ONLY STATS
+# ==========================
+@dp.message()
+async def stats_handler(message: Message):
+    if message.from_user.id not in ADMIN_IDS:
+        return  # Faqat adminlar
+
+    cursor.execute("SELECT u.user_id, u.points, u.referrals, i.invited_by FROM users u LEFT JOIN invites i ON u.user_id=i.user_id")
+    users = cursor.fetchall()
+
+    total_users = len(users)
+    text = f"📊 Botdagi jami foydalanuvchilar: {total_users}\n\n"
+
+    for user_id, points, referrals, invited_by in users:
+        text += f"ID: {user_id} | Ball: {points} | Referallar: {referrals} | "
+        text += f"Referal orqali: {invited_by if invited_by else 'Yo‘q'}\n"
+
+    # Juda uzun bo‘lsa, bo‘lib yuborish mumkin
+    await message.answer(text)
 
 
 # ==========================
