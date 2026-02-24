@@ -5,15 +5,21 @@ from aiogram.types import Message, CallbackQuery
 from aiogram.filters import CommandStart
 from aiogram.utils.keyboard import InlineKeyboardBuilder
 
-TOKEN = "8246098957:AAGtD7OGaD4ThJVGlJM6SSlLkGZ37JV5SY0"  # Bu yerga haqiqiy tokenni yoz
+# ==========================
+# TOKEN va ADMIN
+# ==========================
+TOKEN = "8246098957:AAGtD7OGaD4ThJVGlJM6SSlLkGZ37JV5SY0"  # haqiqiy token
+ADMIN_IDS = [7618889413, 5541894729]  # adminlar ID si
 
+# ==========================
+# KANALLAR va LINKLAR
+# ==========================
 CHANNEL_1 = "@lyceumverse"
 CHANNEL_2 = "@Mirzokhid_blog"
-
 INSTAGRAM_URL = "https://www.instagram.com/_mirzokh1d?igsh=MXF0Z2F3ZmZjMnI1dQ=="
-
 WEBINAR_LINK = "https://example.com/webinar"
-NEEDED_POINTS = 3  # 5 edi, endi 3
+
+NEEDED_POINTS = 3  # Referal balli webinar uchun
 
 if not TOKEN:
     raise ValueError("TOKEN topilmadi! Railway Variables ichiga TOKEN qo'y!")
@@ -149,17 +155,27 @@ async def start_handler(message: Message):
     user_id = message.from_user.id
     add_user(user_id)
 
-    args = message.text.split()
+    # ==========================
+    # Adminga xabar
+    # ==========================
+    for admin_id in ADMIN_IDS:
+        await bot.send_message(
+            admin_id,
+            f"🆕 Yangi foydalanuvchi kelib qo‘shildi!\n\n"
+            f"ID: {user_id}\n"
+            f"Username: @{message.from_user.username or 'No username'}"
+        )
 
+    # ==========================
+    # Referal tizimi
+    # ==========================
+    args = message.text.split()
     if len(args) > 1:
         ref_id = args[1]
-
         if ref_id.isdigit():
             ref_id = int(ref_id)
-
             if ref_id != user_id:
                 add_user(ref_id)
-
                 if not has_invite(user_id):
                     save_invite(user_id, ref_id)
                     add_points(ref_id, 1)
