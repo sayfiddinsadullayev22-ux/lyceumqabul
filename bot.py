@@ -1,6 +1,5 @@
 import asyncio
 import sqlite3
-import os
 from aiogram import Bot, Dispatcher, F
 from aiogram.types import Message, CallbackQuery
 from aiogram.filters import CommandStart
@@ -14,7 +13,7 @@ CHANNEL_2 = "@Mirzokhid_blog"
 INSTAGRAM_URL = "https://www.instagram.com/_mirzokh1d?igsh=MXF0Z2F3ZmZjMnI1dQ=="
 
 WEBINAR_LINK = "https://example.com/webinar"
-NEEDED_POINTS = 5
+NEEDED_POINTS = 3  # 5 edi, endi 3
 
 if not TOKEN:
     raise ValueError("TOKEN topilmadi! Railway Variables ichiga TOKEN qo'y!")
@@ -23,7 +22,7 @@ bot = Bot(token=TOKEN)
 dp = Dispatcher()
 
 # ==========================
-# DATABASE (Railway uchun)
+# DATABASE
 # ==========================
 db = sqlite3.connect("users.db")
 cursor = db.cursor()
