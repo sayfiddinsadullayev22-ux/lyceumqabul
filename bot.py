@@ -9,9 +9,9 @@ from aiogram.utils.keyboard import InlineKeyboardBuilder
 from openpyxl import Workbook
 
 # ================= CONFIG =================
-TOKEN = "BOT_TOKENINGNI_SHU_YERGA_QO'Y"
-ADMIN_IDS = [123456789]  # Admin ID yoz
-CHANNELS = ["@kanal1", "@kanal2"]  # Kanallar
+TOKEN = "8674720299:AAGcfBICYUOql6SUEeSCYmPJWfkFG3dw4Ys"
+ADMIN_IDS = [7618889413 , 5541894729]  # Admin ID yoz
+CHANNELS = ["@Mirzokhid_blog", "@lyceumverse"]  # Kanallar
 WEBINAR_LINK = "https://t.me/yourlink"
 REQUIRED_POINTS = 2
 # ==========================================
