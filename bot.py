@@ -19,10 +19,7 @@ CHANNEL_2 = "@Mirzokhid_blog"
 INSTAGRAM_URL = "https://www.instagram.com/_mirzokh1d?igsh=MXF0Z2F3ZmZjMnI1dQ=="
 WEBINAR_LINK = "https://example.com/webinar"
 
-NEEDED_POINTS = 3  # Referal balli webinar uchun
-
-if not TOKEN:
-    raise ValueError("TOKEN topilmadi! Railway Variables ichiga TOKEN qo'y!")
+NEEDED_POINTS = 2  # Webinar ochish uchun kerakli ball
 
 bot = Bot(token=TOKEN)
 dp = Dispatcher()
@@ -156,7 +153,7 @@ async def start_handler(message: Message):
     add_user(user_id)
 
     # ==========================
-    # Referal tizimi
+    # Referal tizimi (ball bermaymiz)
     # ==========================
     args = message.text.split()
     ref_info = "Referal orqali kelmagan"
@@ -165,8 +162,6 @@ async def start_handler(message: Message):
         add_user(ref_id)
         if not has_invite(user_id):
             save_invite(user_id, ref_id)
-            add_points(ref_id, 1)
-            add_referral_count(ref_id)
             ref_info = f"Referal orqali keldi (ref ID: {ref_id})"
 
     # ==========================
@@ -229,7 +224,6 @@ async def stats_handler(message: Message):
         text += f"ID: {user_id} | Ball: {points} | Referallar: {referrals} | "
         text += f"Referal orqali: {invited_by if invited_by else 'Yo‘q'}\n"
 
-    # Juda uzun bo‘lsa, bo‘lib yuborish mumkin
     await message.answer(text)
 
 
@@ -287,8 +281,7 @@ async def referral_handler(call: CallbackQuery):
     referral_link = f"https://t.me/{bot_username}?start={user_id}"
 
     await call.message.edit_text(
-        f"🎁 Referal tizimi:\n\n"
-        f"📌 Har bir odam sizning referalingiz orqali kirsa — 1 ball olasiz.\n\n"
+        f"🎁 Referal tizimi (ball berilmaydi):\n\n"
         f"🔗 Sizning referal linkingiz:\n\n"
         f"{referral_link}\n\n"
         f"📤 Do‘stlaringizga ulashing!",
@@ -317,7 +310,7 @@ async def webinar_handler(call: CallbackQuery):
             f"⭐ Hozirgi ball: {points}\n"
             f"🎯 Kerakli ball: {NEEDED_POINTS}\n"
             f"📌 Yetishmayapti: {need} ball\n\n"
-            f"Ball yig‘ish uchun referal ulashing:",
+            f"Ball yig‘ish uchun boshqa faoliyatlardan foydalaning.",
             reply_markup=referral_button()
         )
 
