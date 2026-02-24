@@ -47,7 +47,7 @@ CREATE TABLE IF NOT EXISTS invites (
 db.commit()
 
 # ==========================
-# FUNKSIYALAR
+# DATABASE FUNKSIYALAR
 # ==========================
 def add_user(user_id: int):
     cursor.execute("INSERT OR IGNORE INTO users (user_id, points, referrals) VALUES (?, 0, 0)", (user_id,))
@@ -76,7 +76,7 @@ def subscribe_keyboard():
     kb = InlineKeyboardBuilder()
     kb.button(text="📢 Lyceumverse", url="https://t.me/lyceumverse")
     kb.button(text="📢 Mirzokhid Blog", url="https://t.me/Mirzokhid_blog")
-    kb.button(text="✅ Tekshirish", callback_data="check_sub")
+    kb.button(text="✅ Obunani tekshirish", callback_data="check_sub")
     kb.adjust(1)
     return kb.as_markup()
 
@@ -214,7 +214,7 @@ async def profile_handler(call: CallbackQuery):
     user_id = call.from_user.id
     points, referrals = get_user(user_id)
     await call.message.edit_text(
-        f"👋 Salom, @{call.from_user.username or 'user'}!\n⭐ Ballingiz: {points}\n👥 Do‘stlaringiz: {referrals}\n\n📌 Har bir yangi do‘st sizga ball beradi (hozir referal berilmaydi).",
+        f"👋 Salom, @{call.from_user.username or 'user'}!\n⭐ Ballingiz: {points}\n👥 Do‘stlaringiz: {referrals}\n\n📌 Ball to‘plash orqali webinarni ochishingiz mumkin!",
         reply_markup=back_menu()
     )
 
@@ -224,7 +224,7 @@ async def referral_handler(call: CallbackQuery):
     bot_username = (await bot.get_me()).username
     referral_link = f"https://t.me/{bot_username}?start={user_id}"
     await call.message.edit_text(
-        f"🎁 Referal tizimi (ball berilmaydi):\n\n🔗 Sizning referal linkingiz:\n{referral_link}\n\n📤 Do‘stlaringizga ulashing!",
+        f"🎁 Referal tizimi:\n\n🔗 Sizning referal linkingiz:\n{referral_link}\n\n📤 Do‘stlaringizga ulashing!",
         reply_markup=back_menu()
     )
 
