@@ -10,8 +10,8 @@ from openpyxl import Workbook
 
 # ================= CONFIG =================
 TOKEN = "8246098957:AAGtD7OGaD4ThJVGlJM6SSlLkGZ37JV5SY0"
-ADMIN_IDS = [7618889413 , 5541894729]
-CHANNELS = ["@Mirzokhid_blog", "@lyceumverse"]
+ADMIN_IDS = [7618889413 , 5541894729]  # Admin ID yoz
+CHANNELS = ["@Mirzokhid_blog", "@lyceumverse"]  # Kanallar
 WEBINAR_LINK = "https://t.me/+VT0CQQ0n4ag4YzQy"
 REQUIRED_POINTS = 2
 # ==========================================
@@ -50,7 +50,7 @@ def add_user(user_id, username):
     cursor.execute("""
     INSERT OR IGNORE INTO users(user_id, username, joined_at)
     VALUES(?,?,?)
-    """, (user_id, username or "Do‘st", datetime.now().strftime("%Y-%m-%d %H:%M")))
+    """, (user_id, username, datetime.now().strftime("%Y-%m-%d %H:%M")))
     db.commit()
 
 def get_user(user_id):
@@ -85,7 +85,7 @@ def main_menu():
     kb.button(text="🎁 Do‘st taklif qilish", callback_data="ref")
     kb.button(text="🏆 Reyting", callback_data="top")
     kb.button(text="🎥 Webinar", callback_data="webinar")
-    kb.adjust(2, 2)
+    kb.adjust(2,2)
     return kb.as_markup()
 
 def back_kb():
@@ -120,26 +120,23 @@ async def start_handler(message: Message):
         if ref_id != user_id:
             cursor.execute("SELECT * FROM invites WHERE user_id=?", (user_id,))
             if not cursor.fetchone():
-                cursor.execute("INSERT INTO invites(user_id, invited_by) VALUES(?,?)", (user_id, ref_id))
+                cursor.execute("INSERT INTO invites(user_id, invited_by) VALUES(?,?)",
+                               (user_id, ref_id))
                 add_points(ref_id, 1)
                 add_referral(ref_id)
                 db.commit()
-                # Referral rag‘batlantirish
-                await bot.send_message(ref_id, f"🎉 Sizga yangi referral qo‘shildi! Sizning ballaringiz: ⭐ {get_user(ref_id)[2]}")
 
     if not await check_subscription(user_id):
-        await message.answer_sticker("CAACAgIAAxkBAAEHnW1k...")  # welcome stiker
         await message.answer(
-            "👋 Salom, {username or 'Do‘st'}!\n\n"
+            "Assalomu alaykum 😊\n\n"
             "Botdan foydalanish uchun quyidagi rasmiy kanallarga obuna bo‘ling:",
             reply_markup=subscribe_kb()
         )
         return
 
-    await message.answer_sticker("CAACAgIAAxkBAAEHnX1k...")  # success stiker
     await message.answer(
-        f"🎉 Xush kelibsiz, {username or 'Do‘st'}!\n\n"
-        "Shaxsiy kabinetingiz orqali ballaringiz va referallaringizni kuzatishingiz mumkin.",
+        "Xush kelibsiz! 🎉\n\n"
+        "Shaxsiy kabinetingiz orqali faolligingizni kuzatishingiz mumkin.",
         reply_markup=main_menu()
     )
 
@@ -154,21 +151,21 @@ async def start_handler(message: Message):
 @dp.callback_query(F.data == "check_sub")
 async def check_sub(call: CallbackQuery):
     if await check_subscription(call.from_user.id):
-        await call.message.edit_text("✅ Obuna tasdiqlandi", reply_markup=main_menu())
+        await call.message.edit_text(
+            "Obuna tasdiqlandi ✅",
+            reply_markup=main_menu()
+        )
     else:
-        await call.answer("⚠️ Hali barcha kanallarga obuna bo‘lmagansiz.", show_alert=True)
+        await call.answer("Hali barcha kanallarga obuna bo‘lmagansiz.", show_alert=True)
 
 @dp.callback_query(F.data == "profile")
 async def profile(call: CallbackQuery):
     user = get_user(call.from_user.id)
-    if not user:
-        await call.answer("❌ User topilmadi.", show_alert=True)
-        return
     text = (
-        f"👤 Shaxsiy kabinet\n\n"
+        "👤 Shaxsiy kabinet\n\n"
         f"🆔 ID: {user[0]}\n"
-        f"⭐ Ball: {user[2]} 🌟\n"
-        f"👥 Referral: {user[3]} 🤝"
+        f"⭐ Ball: {user[2]}\n"
+        f"👥 Referal: {user[3]}"
     )
     await call.message.edit_text(text, reply_markup=back_kb())
 
@@ -177,7 +174,7 @@ async def referral(call: CallbackQuery):
     link = f"https://t.me/{(await bot.me()).username}?start={call.from_user.id}"
     await call.message.edit_text(
         "🎁 Do‘stlarni taklif qiling!\n\n"
-        f"Sizning maxsus havolangiz:\n{link}",
+        f"Sizning havolangiz:\n{link}",
         reply_markup=back_kb()
     )
 
@@ -186,12 +183,9 @@ async def leaderboard(call: CallbackQuery):
     cursor.execute("SELECT user_id, referrals FROM users ORDER BY referrals DESC LIMIT 10")
     top = cursor.fetchall()
 
-    text = "🏆 TOP 10 REFERALLAR\n\n"
-    if top:
-        for i, user in enumerate(top, 1):
-            text += f"{i}. {user[0]} — {user[1]} 🤝\n"
-    else:
-        text += "❌ Hozircha userlar yo‘q."
+    text = "🏆 TOP 10\n\n"
+    for i, user in enumerate(top, 1):
+        text += f"{i}. {user[0]} — {user[1]} ta\n"
 
     await call.message.edit_text(text, reply_markup=back_kb())
 
@@ -200,18 +194,21 @@ async def webinar(call: CallbackQuery):
     user = get_user(call.from_user.id)
     if user[2] >= REQUIRED_POINTS:
         await call.message.edit_text(
-            f"🎥 Webinar havolasi:\n{WEBINAR_LINK}\n✅ Sizda yetarli ball mavjud: {user[2]} ⭐",
+            f"🎥 Webinar havolasi:\n{WEBINAR_LINK}",
             reply_markup=back_kb()
         )
     else:
         await call.answer(
-            f"⚠️ Webinar uchun kamida {REQUIRED_POINTS} ball kerak, sizda: {user[2]} ⭐",
+            f"Webinar uchun kamida {REQUIRED_POINTS} ball kerak.",
             show_alert=True
         )
 
 @dp.callback_query(F.data == "back")
 async def back(call: CallbackQuery):
-    await call.message.edit_text("Asosiy menyu 👇", reply_markup=main_menu())
+    await call.message.edit_text(
+        "Asosiy menyu 👇",
+        reply_markup=main_menu()
+    )
 # =================================================
 
 # ================= ADMIN PANEL =================
