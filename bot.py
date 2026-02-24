@@ -14,7 +14,7 @@ CHANNELS = ["@Mirzokhid_blog", "@lyceumverse"]
 WEBINAR_LINK = "https://t.me/+VT0CQQ0n4ag4YzQy"
 REQUIRED_REFERRALS = 2
 MAX_POINTS_BAR = 5
-BOT_USERNAME = "@lyceumqabulbot"  # <--- bu yerga bot username qo'ying
+BOT_USERNAME = "8246098957:AAGtD7OGaD4ThJVGlJM6SSlLkGZ37JV5SY0"  # <--- Bot username
 # ==========================================
 
 logging.basicConfig(level=logging.INFO)
@@ -44,7 +44,6 @@ CREATE TABLE IF NOT EXISTS invites(
 """)
 
 db.commit()
-# ============================================
 
 # ================= DB FUNCTIONS =================
 def add_user(user_id, username):
@@ -65,10 +64,6 @@ def add_points(user_id, amount=1):
 def add_referral(user_id):
     cursor.execute("UPDATE users SET referrals=referrals+1 WHERE user_id=?", (user_id,))
     db.commit()
-
-def total_users():
-    cursor.execute("SELECT COUNT(*) FROM users")
-    return cursor.fetchone()[0]
 
 def user_bar(points, max_points=MAX_POINTS_BAR):
     full_block = "🟩"
@@ -104,23 +99,25 @@ async def start_handler(message: Message):
 
     # Inline keyboard
     kb = InlineKeyboardBuilder()
+    # Webinar tugmasi
     if ref_count >= REQUIRED_REFERRALS:
         kb.button(text="🟩🎥 Webinarga kirish", callback_data="webinar")
-        msg_text = (
-            f"👋 Salom, {username}!\n\n"
-            "Siz barcha shartlarni bajardingiz. Endi Webinar tugmasini bosib, qatnashishingiz mumkin.\n\n"
-            f"Sizning referal linkingiz: {referal_link} 👈 do‘stlaringizni taklif qiling!"
-        )
+        webinar_msg = "Siz barcha shartlarni bajardingiz. Endi Webinar tugmasini bosib, qatnashishingiz mumkin."
     else:
-        needed = REQUIRED_REFERRALS - ref_count
         kb.button(text="🟩🎥 Webinar (referal yetarli emas)", callback_data="webinar_disabled")
-        msg_text = (
-            f"👋 Salom, {username}!\n\n"
-            f"Webinarda qatnashish uchun kamida {REQUIRED_REFERRALS} referal kerak.\n"
-            f"Hozir sizda {ref_count} referal bor. Yana {needed} ta do‘stingizni taklif qiling.\n\n"
-            f"Sizning referal linkingiz: {referal_link} 👈 do‘stlaringizni taklif qiling!"
-        )
+        needed = REQUIRED_REFERRALS - ref_count
+        webinar_msg = f"Webinarda qatnashish uchun kamida {REQUIRED_REFERRALS} referal kerak.\nHozir sizda {ref_count} referal bor. Yana {needed} ta do‘stingizni taklif qiling."
+
+    # Referal tugmasi
+    kb.button(text="🟩 Do‘stlarni taklif qil", url=referal_link)
     kb.adjust(1)
+
+    msg_text = (
+        f"👋 Salom, {username}!\n\n"
+        f"{webinar_msg}\n\n"
+        f"Sizning referal linkingiz: {referal_link}"
+    )
+
     await message.answer(msg_text, reply_markup=kb.as_markup())
 
 # ================= CALLBACKS =================
