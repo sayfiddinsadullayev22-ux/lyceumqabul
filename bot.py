@@ -10,10 +10,11 @@ from aiogram.utils.keyboard import InlineKeyboardBuilder
 # ================= CONFIG =================
 TOKEN = "8246098957:AAGtD7OGaD4ThJVGlJM6SSlLkGZ37JV5SY0"
 ADMIN_IDS = [7618889413, 5541894729]
-CHANNELS = ["@Mirzokhid_blog", "@lyceumverse"]  # Foydalanuvchi obuna bo'lishi kerak bo'lgan kanallar
+CHANNELS = ["@Mirzokhid_blog", "@lyceumverse"]
 WEBINAR_LINK = "https://t.me/+VT0CQQ0n4ag4YzQy"
 REQUIRED_REFERRALS = 2
-MAX_POINTS_BAR = 2
+MAX_POINTS_BAR = 5
+BOT_USERNAME = "lyceumqabulbot"  # Telegram bot username, referal link uchun
 # ==========================================
 
 logging.basicConfig(level=logging.INFO)
@@ -101,22 +102,22 @@ async def start_handler(message: Message):
 
     # Inline keyboard
     kb = InlineKeyboardBuilder()
-
-    # Webinar tugmasi tekshiruv bilan
     subscribed = await is_subscribed(user_id)
+
+    # Webinar tugmasi
     if ref_count >= REQUIRED_REFERRALS and subscribed:
         kb.button(text="🟩🎥 Webinarga kirish", callback_data="webinar")
         webinar_msg = "Siz barcha shartlarni bajardingiz va kanallarga obuna bo‘ldingiz. Endi Webinar tugmasini bosib qatnashing!"
     else:
         kb.button(text="🟩🎥 Webinar (shartlar yetarli emas)", callback_data="webinar_disabled")
-        needed = max(0, REQUIRED_REFERRALS - ref_count)
         if not subscribed:
-            webinar_msg = f"Siz barcha referal shartlarni bajargan bo‘lsangiz ham, barcha kanallarga obuna bo‘lishingiz kerak."
+            webinar_msg = "Iltimos, barcha kanallarga obuna bo‘ling."
         else:
+            needed = max(0, REQUIRED_REFERRALS - ref_count)
             webinar_msg = f"Webinarda qatnashish uchun kamida {REQUIRED_REFERRALS} referal kerak. Sizda {ref_count} ta."
 
-    # Do‘stlarni taklif qil tugmasi
-    kb.button(text="🟩 Do‘stlarni taklif qil", callback_data=f"get_ref_{user_id}")
+    # Do‘stlarga ulashish tugmasi
+    kb.button(text="🟩 Do‘stlarga ulashish", callback_data=f"get_ref_{user_id}")
     kb.adjust(1)
 
     msg_text = (
@@ -124,7 +125,6 @@ async def start_handler(message: Message):
         f"{webinar_msg}\n\n"
         "Do‘stlaringizni taklif qilish uchun pastdagi tugmani bosing."
     )
-
     await message.answer(msg_text, reply_markup=kb.as_markup())
 
 # ================= CALLBACKS =================
@@ -142,23 +142,29 @@ async def webinar(call: CallbackQuery):
 @dp.callback_query(F.data == "webinar_disabled")
 async def webinar_disabled(call: CallbackQuery):
     user = get_user(call.from_user.id)
-    needed = max(0, REQUIRED_REFERRALS - user[3])
     subscribed = await is_subscribed(user[0])
     if not subscribed:
         msg = "⚠️ Iltimos, barcha kanallarga obuna bo‘ling."
     else:
+        needed = max(0, REQUIRED_REFERRALS - user[3])
         msg = f"⚠️ Kamida {needed} ta referal kerak."
     await call.answer(msg, show_alert=True)
 
+# Referal xabar callback
 @dp.callback_query(F.data.startswith("get_ref_"))
 async def get_referral(call: CallbackQuery):
     ref_user_id = call.from_user.id
-    ref_link = f"/start {ref_user_id}"
-    await call.message.answer(
-        f"✅ Sizning referal linkingiz:\n`{ref_link}`\n\n"
-        "Do‘stlaringizga yuboring, ular ushbu link orqali kirsa, sizga ball va referal qo‘shiladi.",
-        parse_mode="Markdown"
+    referal_link = f"https://t.me/{BOT_USERNAME}?start={ref_user_id}"
+    text = (
+        f"🎁 Referal tizimi:\n\n"
+        f"📌 Har bir odam sizning referalingiz orqali kirsa — 1 ball olasiz.\n\n"
+        f"🔗 Sizning referal linkingiz:\n{referal_link}\n\n"
+        f"📤 Do‘stlaringizga ulashing!\n\n"
+        f"Telegram ({referal_link})\n"
+        f"LyceumQabul\n"
+        f"Lyceumverse tomonidan ishlab chiqilgan"
     )
+    await call.message.answer(text)
     await call.answer("Referal link tayyor!", show_alert=True)
 
 # ================= STATS =================
