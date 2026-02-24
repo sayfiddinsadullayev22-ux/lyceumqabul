@@ -6,7 +6,6 @@ from aiogram import Bot, Dispatcher, F
 from aiogram.types import Message, CallbackQuery
 from aiogram.filters import CommandStart, Command
 from aiogram.utils.keyboard import InlineKeyboardBuilder
-from openpyxl import Workbook
 
 # ================= CONFIG =================
 TOKEN = "8246098957:AAGtD7OGaD4ThJVGlJM6SSlLkGZ37JV5SY0"
@@ -15,6 +14,7 @@ CHANNELS = ["@Mirzokhid_blog", "@lyceumverse"]
 WEBINAR_LINK = "https://t.me/+VT0CQQ0n4ag4YzQy"
 REQUIRED_REFERRALS = 2
 MAX_POINTS_BAR = 5
+BOT_USERNAME = "@lyceumqabulbot"  # <--- bu yerga bot username qo'ying
 # ==========================================
 
 logging.basicConfig(level=logging.INFO)
@@ -70,7 +70,6 @@ def total_users():
     cursor.execute("SELECT COUNT(*) FROM users")
     return cursor.fetchone()[0]
 
-# Progress bar uchun funksiya
 def user_bar(points, max_points=MAX_POINTS_BAR):
     full_block = "🟩"
     empty_block = "⬜️"
@@ -100,21 +99,26 @@ async def start_handler(message: Message):
     user = get_user(user_id)
     ref_count = user[3]  # referrals
 
+    # Foydalanuvchining referal linki
+    referal_link = f"https://t.me/{BOT_USERNAME}?start={user_id}"
+
     # Inline keyboard
     kb = InlineKeyboardBuilder()
     if ref_count >= REQUIRED_REFERRALS:
         kb.button(text="🟩🎥 Webinarga kirish", callback_data="webinar")
         msg_text = (
             f"👋 Salom, {username}!\n\n"
-            "Siz barcha shartlarni bajardingiz. Endi Webinar tugmasini bosib, qatnashishingiz mumkin.Pastdagi birgina tugmani bosihs orqali hammasini uddalang! "
+            "Siz barcha shartlarni bajardingiz. Endi Webinar tugmasini bosib, qatnashishingiz mumkin.\n\n"
+            f"Sizning referal linkingiz: {referal_link} 👈 do‘stlaringizni taklif qiling!"
         )
     else:
         needed = REQUIRED_REFERRALS - ref_count
-        kb.button(text="🎥 Webinar (referal yetarli emas)", callback_data="webinar_disabled")
+        kb.button(text="🟩🎥 Webinar (referal yetarli emas)", callback_data="webinar_disabled")
         msg_text = (
             f"👋 Salom, {username}!\n\n"
             f"Webinarda qatnashish uchun kamida {REQUIRED_REFERRALS} referal kerak.\n"
-            f"Hozir sizda {ref_count} referal bor. Yana {needed} ta do‘stingizni taklif qiling."
+            f"Hozir sizda {ref_count} referal bor. Yana {needed} ta do‘stingizni taklif qiling.\n\n"
+            f"Sizning referal linkingiz: {referal_link} 👈 do‘stlaringizni taklif qiling!"
         )
     kb.adjust(1)
     await message.answer(msg_text, reply_markup=kb.as_markup())
