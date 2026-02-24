@@ -12,7 +12,7 @@ from openpyxl import Workbook
 TOKEN = "8246098957:AAGtD7OGaD4ThJVGlJM6SSlLkGZ37JV5SY0"
 ADMIN_IDS = [7618889413 , 5541894729]
 CHANNELS = ["@Mirzokhid_blog", "@lyceumverse"]
-WEBINAR_LINK = "https://t.me/yourlink"
+WEBINAR_LINK = "https://t.me/+VT0CQQ0n4ag4YzQy"
 REQUIRED_POINTS = 2
 # ==========================================
 
