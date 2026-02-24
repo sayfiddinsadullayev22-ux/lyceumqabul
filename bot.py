@@ -10,11 +10,11 @@ from aiogram.utils.keyboard import InlineKeyboardBuilder
 # ================= CONFIG =================
 TOKEN = "8246098957:AAGtD7OGaD4ThJVGlJM6SSlLkGZ37JV5SY0"
 ADMIN_IDS = [7618889413, 5541894729]
-CHANNELS = ["@Mirzokhid_blog", "@lyceumverse"]
+CHANNELS = ["@Mirzokhid_blog", "@lyceumverse"]  # Kanallar majburiy obuna
 WEBINAR_LINK = "https://t.me/+VT0CQQ0n4ag4YzQy"
 REQUIRED_REFERRALS = 2
 MAX_POINTS_BAR = 5
-BOT_USERNAME = "lyceumqabulbot"  # Telegram bot username, referal link uchun
+BOT_USERNAME = "lyceumqabulbot"  # Telegram bot username
 # ==========================================
 
 logging.basicConfig(level=logging.INFO)
@@ -99,58 +99,66 @@ async def start_handler(message: Message):
 
     user = get_user(user_id)
     ref_count = user[3]
-
-    # Inline keyboard
-    kb = InlineKeyboardBuilder()
     subscribed = await is_subscribed(user_id)
 
-    # Webinar tugmasi
-    if ref_count >= REQUIRED_REFERRALS and subscribed:
-        kb.button(text="🟩🎥 Webinarga kirish", callback_data="webinar")
-        webinar_msg = "Siz barcha shartlarni bajardingiz va kanallarga obuna bo‘ldingiz. Endi Webinar tugmasini bosib qatnashing!"
+    kb = InlineKeyboardBuilder()
+
+    # Agar foydalanuvchi kanallarga obuna bo‘lmasa, obuna tugmalari qo‘shamiz
+    if not subscribed:
+        for channel in CHANNELS:
+            kb.button(text=f"🔔 Obuna bo‘ling {channel}", url=f"https://t.me/{channel.strip('@')}")
+        kb.button(text="✅ Obunani tekshir", callback_data="check_sub")
+        kb.adjust(1)
+        msg_text = (
+            f"👋 Salom, {username}!\n\n"
+            "Webinar va referal ishlashi uchun barcha kanallarga obuna bo‘lishingiz kerak.\n"
+            "Quyidagi tugmalar orqali kanallarga obuna bo‘ling, so‘ng ‘Obunani tekshir’ tugmasini bosing."
+        )
     else:
-        kb.button(text="🟩🎥 Webinar (shartlar yetarli emas)", callback_data="webinar_disabled")
-        if not subscribed:
-            webinar_msg = "Iltimos, barcha kanallarga obuna bo‘ling."
-        else:
-            needed = max(0, REQUIRED_REFERRALS - ref_count)
-            webinar_msg = f"Webinarda qatnashish uchun kamida {REQUIRED_REFERRALS} referal kerak. Sizda {ref_count} ta."
+        kb.button(text="🟩🎥 Webinarga kirish", callback_data="webinar")
+        kb.button(text="🟩 Do‘stlarga ulashish", callback_data=f"get_ref_{user_id}")
+        kb.adjust(1)
+        msg_text = (
+            f"👋 Salom, {username}!\n\n"
+            f"Siz barcha kanallarga obuna bo‘lgansiz. Endi Webinar va referal tugmalari ishlaydi."
+        )
 
-    # Do‘stlarga ulashish tugmasi
-    kb.button(text="🟩 Do‘stlarga ulashish", callback_data=f"get_ref_{user_id}")
-    kb.adjust(1)
-
-    msg_text = (
-        f"👋 Salom, {username}!\n\n"
-        f"{webinar_msg}\n\n"
-        "Do‘stlaringizni taklif qilish uchun pastdagi tugmani bosing."
-    )
     await message.answer(msg_text, reply_markup=kb.as_markup())
 
 # ================= CALLBACKS =================
+@dp.callback_query(F.data == "check_sub")
+async def check_subscription(call: CallbackQuery):
+    subscribed = await is_subscribed(call.from_user.id)
+    if subscribed:
+        kb = InlineKeyboardBuilder()
+        kb.button(text="🟩🎥 Webinarga kirish", callback_data="webinar")
+        kb.button(text="🟩 Do‘stlarga ulashish", callback_data=f"get_ref_{call.from_user.id}")
+        kb.adjust(1)
+        await call.message.edit_text(
+            "✅ Obuna tasdiqlandi! Endi Webinar va referal tugmalari ishlaydi.",
+            reply_markup=kb.as_markup()
+        )
+    else:
+        await call.answer("⚠️ Hali barcha kanallarga obuna bo‘lmadingiz.", show_alert=True)
+
 @dp.callback_query(F.data == "webinar")
 async def webinar(call: CallbackQuery):
     user = get_user(call.from_user.id)
     subscribed = await is_subscribed(user[0])
     if user[3] >= REQUIRED_REFERRALS and subscribed:
         await call.message.edit_text(
-            f"🎥 Webinar havolasi:\n{WEBINAR_LINK}\n✅ Sizda {user[3]} referal mavjud va barcha kanallarga obuna bo‘ldingiz."
+            f"🎥 Webinar havolasi:\n{WEBINAR_LINK}\n\n"
+            f"✅ Sizda {user[1]} ball va {user[3]} referal mavjud."
         )
     else:
-        await call.answer("⚠️ Shartlar yetarli emas (referal yoki obuna).", show_alert=True)
+        needed_ref = max(0, REQUIRED_REFERRALS - user[3])
+        msg = "⚠️ Shartlar yetarli emas.\n"
+        if not subscribed:
+            msg += "Iltimos, barcha kanallarga obuna bo‘ling.\n"
+        if needed_ref > 0:
+            msg += f"{needed_ref} ta referal yetishmayapti."
+        await call.answer(msg, show_alert=True)
 
-@dp.callback_query(F.data == "webinar_disabled")
-async def webinar_disabled(call: CallbackQuery):
-    user = get_user(call.from_user.id)
-    subscribed = await is_subscribed(user[0])
-    if not subscribed:
-        msg = "⚠️ Iltimos, barcha kanallarga obuna bo‘ling."
-    else:
-        needed = max(0, REQUIRED_REFERRALS - user[3])
-        msg = f"⚠️ Kamida {needed} ta referal kerak."
-    await call.answer(msg, show_alert=True)
-
-# Referal xabar callback
 @dp.callback_query(F.data.startswith("get_ref_"))
 async def get_referral(call: CallbackQuery):
     ref_user_id = call.from_user.id
