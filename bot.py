@@ -1,249 +1,281 @@
 import asyncio
+import logging
 import sqlite3
+from datetime import datetime
 from aiogram import Bot, Dispatcher, F
 from aiogram.types import Message, CallbackQuery
-from aiogram.filters import CommandStart
+from aiogram.filters import CommandStart, Command
 from aiogram.utils.keyboard import InlineKeyboardBuilder
+from openpyxl import Workbook
 
-# ==========================
-# TOKEN va ADMIN
-# ==========================
-TOKEN = "8246098957:AAGtD7OGaD4ThJVGlJM6SSlLkGZ37JV5SY0"
-ADMIN_IDS = [7618889413, 5541894729]
+# ================= CONFIG =================
+TOKEN = "BOT_TOKENINGNI_SHU_YERGA_QO'Y"
+ADMIN_IDS = [123456789]  # Admin ID yoz
+CHANNELS = ["@kanal1", "@kanal2"]  # Kanallar
+WEBINAR_LINK = "https://t.me/yourlink"
+REQUIRED_POINTS = 2
+# ==========================================
 
-# ==========================
-# KANALLAR va LINKLAR
-# ==========================
-CHANNEL_1 = "@lyceumverse"
-CHANNEL_2 = "@Mirzokhid_blog"
-WEBINAR_LINK = "https://example.com/webinar"
+logging.basicConfig(level=logging.INFO)
 
-NEEDED_POINTS = 2
-
-bot = Bot(token=TOKEN)
+bot = Bot(TOKEN)
 dp = Dispatcher()
 
-# ==========================
-# DATABASE
-# ==========================
-db = sqlite3.connect("users.db")
+# ================= DATABASE =================
+db = sqlite3.connect("database.db")
 cursor = db.cursor()
 
 cursor.execute("""
-CREATE TABLE IF NOT EXISTS users (
+CREATE TABLE IF NOT EXISTS users(
     user_id INTEGER PRIMARY KEY,
+    username TEXT,
     points INTEGER DEFAULT 0,
-    referrals INTEGER DEFAULT 0
+    referrals INTEGER DEFAULT 0,
+    joined_at TEXT
 )
 """)
 
 cursor.execute("""
-CREATE TABLE IF NOT EXISTS invites (
+CREATE TABLE IF NOT EXISTS invites(
     user_id INTEGER PRIMARY KEY,
     invited_by INTEGER
 )
 """)
 
 db.commit()
+# ============================================
 
-# ==========================
-# DATABASE FUNKSIYALAR
-# ==========================
-def add_user(user_id: int):
-    cursor.execute("INSERT OR IGNORE INTO users (user_id, points, referrals) VALUES (?, 0, 0)", (user_id,))
+# ================= DB FUNCTIONS =================
+def add_user(user_id, username):
+    cursor.execute("""
+    INSERT OR IGNORE INTO users(user_id, username, joined_at)
+    VALUES(?,?,?)
+    """, (user_id, username, datetime.now().strftime("%Y-%m-%d %H:%M")))
     db.commit()
 
-def get_user(user_id: int):
-    cursor.execute("SELECT points, referrals FROM users WHERE user_id=?", (user_id,))
-    return cursor.fetchone() or (0, 0)
-
-def add_points(user_id: int, amount: int = 1):
-    cursor.execute("UPDATE users SET points = points + ? WHERE user_id=?", (amount, user_id))
-    db.commit()
-
-def has_invite(user_id: int):
-    cursor.execute("SELECT invited_by FROM invites WHERE user_id=?", (user_id,))
+def get_user(user_id):
+    cursor.execute("SELECT * FROM users WHERE user_id=?", (user_id,))
     return cursor.fetchone()
 
-def save_invite(user_id: int, invited_by: int):
-    cursor.execute("INSERT OR IGNORE INTO invites (user_id, invited_by) VALUES (?, ?)", (user_id, invited_by))
+def add_points(user_id, amount=1):
+    cursor.execute("UPDATE users SET points=points+? WHERE user_id=?", (amount, user_id))
     db.commit()
 
-# ==========================
-# KEYBOARDS
-# ==========================
-def subscribe_keyboard():
+def add_referral(user_id):
+    cursor.execute("UPDATE users SET referrals=referrals+1 WHERE user_id=?", (user_id,))
+    db.commit()
+
+def total_users():
+    cursor.execute("SELECT COUNT(*) FROM users")
+    return cursor.fetchone()[0]
+# =================================================
+
+# ================= KEYBOARDS =================
+def subscribe_kb():
     kb = InlineKeyboardBuilder()
-    kb.button(text="📢 Lyceumverse", url="https://t.me/lyceumverse")
-    kb.button(text="📢 Mirzokhid Blog", url="https://t.me/Mirzokhid_blog")
-    kb.button(text="✅ Obunani tekshirish", callback_data="check_sub")
+    for ch in CHANNELS:
+        kb.button(text=f"📢 {ch}", url=f"https://t.me/{ch.replace('@','')}")
+    kb.button(text="✅ Obunani tasdiqlash", callback_data="check_sub")
     kb.adjust(1)
     return kb.as_markup()
 
 def main_menu():
     kb = InlineKeyboardBuilder()
-    kb.button(text="👤 Profilim", callback_data="profile")
-    kb.button(text="🎁 Referal", callback_data="referral")
+    kb.button(text="👤 Shaxsiy kabinet", callback_data="profile")
+    kb.button(text="🎁 Do‘st taklif qilish", callback_data="ref")
+    kb.button(text="🏆 Reyting", callback_data="top")
     kb.button(text="🎥 Webinar", callback_data="webinar")
-    kb.adjust(2, 1)
+    kb.adjust(2,2)
     return kb.as_markup()
 
-def back_menu():
+def back_kb():
     kb = InlineKeyboardBuilder()
-    kb.button(text="⬅️ Orqaga", callback_data="back")
+    kb.button(text="⬅️ Asosiy menyu", callback_data="back")
     return kb.as_markup()
+# =================================================
 
-def webinar_link_keyboard():
-    kb = InlineKeyboardBuilder()
-    kb.button(text="🎥 Webinarni ochish", url=WEBINAR_LINK)
-    kb.button(text="⬅️ Orqaga", callback_data="back")
-    kb.adjust(1)
-    return kb.as_markup()
-
-def referral_button():
-    kb = InlineKeyboardBuilder()
-    kb.button(text="🎁 Referal olish", callback_data="referral")
-    kb.button(text="⬅️ Orqaga", callback_data="back")
-    kb.adjust(1)
-    return kb.as_markup()
-
-# ==========================
-# SUBSCRIPTION CHECK
-# ==========================
-async def check_subscription(user_id: int):
+# ================= FORCE SUB =================
+async def check_subscription(user_id):
     try:
-        member1 = await bot.get_chat_member(CHANNEL_1, user_id)
-        member2 = await bot.get_chat_member(CHANNEL_2, user_id)
-        ok1 = member1.status in ["member", "administrator", "creator"]
-        ok2 = member2.status in ["member", "administrator", "creator"]
-        return ok1 and ok2
+        for ch in CHANNELS:
+            member = await bot.get_chat_member(ch, user_id)
+            if member.status not in ["member","administrator","creator"]:
+                return False
+        return True
     except:
         return False
+# =================================================
 
-# ==========================
-# START
-# ==========================
+# ================= START =================
 @dp.message(CommandStart())
 async def start_handler(message: Message):
     user_id = message.from_user.id
-    add_user(user_id)
+    username = message.from_user.username
+
+    add_user(user_id, username)
 
     args = message.text.split()
-    ref_info = "Referal orqali kelmagan"
-    if len(args) > 1 and args[1].isdigit() and int(args[1]) != user_id:
+    if len(args) > 1 and args[1].isdigit():
         ref_id = int(args[1])
-        add_user(ref_id)
-        if not has_invite(user_id):
-            save_invite(user_id, ref_id)
-            ref_info = f"Referal orqali keldi (ref ID: {ref_id})"
+        if ref_id != user_id:
+            cursor.execute("SELECT * FROM invites WHERE user_id=?", (user_id,))
+            if not cursor.fetchone():
+                cursor.execute("INSERT INTO invites(user_id, invited_by) VALUES(?,?)",
+                               (user_id, ref_id))
+                add_points(ref_id, 1)
+                add_referral(ref_id)
+                db.commit()
 
-    cursor.execute("SELECT COUNT(*) FROM users")
-    user_count = cursor.fetchone()[0]
-
-    for admin_id in ADMIN_IDS:
-        await bot.send_message(admin_id,
-            f"🎉 Yangi foydalanuvchi qo‘shildi!\n\n"
-            f"👤 ID: {user_id}\n"
-            f"Username: @{message.from_user.username or 'No username'}\n"
-            f"{ref_info}\n"
-            f"👥 Botdagi jami foydalanuvchilar: {user_count}")
-
-    is_sub = await check_subscription(user_id)
-
-    if not is_sub:
+    if not await check_subscription(user_id):
         await message.answer(
-            "👋 Assalomu alaykum!\n"
-            "Botdan foydalanish uchun quyidagi kanallarga obuna bo‘ling:\n"
-            "✅ Lyceumverse\n"
-            "✅ Mirzokhid Blog\n\n"
-            "Obuna bo‘lgach pastdagi tugmani bosing:",
-            reply_markup=subscribe_keyboard()
+            "Assalomu alaykum 😊\n\n"
+            "Botdan foydalanish uchun quyidagi rasmiy kanallarga obuna bo‘ling:",
+            reply_markup=subscribe_kb()
         )
-    else:
-        await message.answer(
-            "🎉 Xush kelibsiz!\nSiz muvaffaqiyatli obuna bo‘ldingiz.\nQuyidagi menyudan tanlang:",
+        return
+
+    await message.answer(
+        "Xush kelibsiz! 🎉\n\n"
+        "Shaxsiy kabinetingiz orqali faolligingizni kuzatishingiz mumkin.",
+        reply_markup=main_menu()
+    )
+
+    for admin in ADMIN_IDS:
+        await bot.send_message(
+            admin,
+            f"🆕 Yangi user\nID: {user_id}\nJami: {total_users()}"
+        )
+# =================================================
+
+# ================= CALLBACKS =================
+@dp.callback_query(F.data == "check_sub")
+async def check_sub(call: CallbackQuery):
+    if await check_subscription(call.from_user.id):
+        await call.message.edit_text(
+            "Obuna tasdiqlandi ✅",
             reply_markup=main_menu()
         )
+    else:
+        await call.answer("Hali barcha kanallarga obuna bo‘lmagansiz.", show_alert=True)
 
-# ==========================
-# ADD POINTS (FAOLLIK)
-# ==========================
-@dp.message(commands=['addpoint'])
-async def addpoint_handler(message: Message):
-    user_id = message.from_user.id
-    add_points(user_id, 1)
-    points, _ = get_user(user_id)
-    await message.answer(f"🌟 Siz 1 ball oldingiz!\nHozirgi ballingiz: {points}")
+@dp.callback_query(F.data == "profile")
+async def profile(call: CallbackQuery):
+    user = get_user(call.from_user.id)
+    text = (
+        "👤 Shaxsiy kabinet\n\n"
+        f"🆔 ID: {user[0]}\n"
+        f"⭐ Ball: {user[2]}\n"
+        f"👥 Referal: {user[3]}"
+    )
+    await call.message.edit_text(text, reply_markup=back_kb())
 
-# ==========================
-# ADMIN STATS
-# ==========================
-@dp.message(commands=['stats'])
-async def stats_handler(message: Message):
+@dp.callback_query(F.data == "ref")
+async def referral(call: CallbackQuery):
+    link = f"https://t.me/{(await bot.me()).username}?start={call.from_user.id}"
+    await call.message.edit_text(
+        "🎁 Do‘stlarni taklif qiling!\n\n"
+        f"Sizning havolangiz:\n{link}",
+        reply_markup=back_kb()
+    )
+
+@dp.callback_query(F.data == "top")
+async def leaderboard(call: CallbackQuery):
+    cursor.execute("SELECT user_id, referrals FROM users ORDER BY referrals DESC LIMIT 10")
+    top = cursor.fetchall()
+
+    text = "🏆 TOP 10\n\n"
+    for i, user in enumerate(top, 1):
+        text += f"{i}. {user[0]} — {user[1]} ta\n"
+
+    await call.message.edit_text(text, reply_markup=back_kb())
+
+@dp.callback_query(F.data == "webinar")
+async def webinar(call: CallbackQuery):
+    user = get_user(call.from_user.id)
+    if user[2] >= REQUIRED_POINTS:
+        await call.message.edit_text(
+            f"🎥 Webinar havolasi:\n{WEBINAR_LINK}",
+            reply_markup=back_kb()
+        )
+    else:
+        await call.answer(
+            f"Webinar uchun kamida {REQUIRED_POINTS} ball kerak.",
+            show_alert=True
+        )
+
+@dp.callback_query(F.data == "back")
+async def back(call: CallbackQuery):
+    await call.message.edit_text(
+        "Asosiy menyu 👇",
+        reply_markup=main_menu()
+    )
+# =================================================
+
+# ================= ADMIN PANEL =================
+@dp.message(Command("panel"))
+async def admin_panel(message: Message):
     if message.from_user.id not in ADMIN_IDS:
         return
 
-    cursor.execute("SELECT u.user_id, u.points, u.referrals, i.invited_by FROM users u LEFT JOIN invites i ON u.user_id=i.user_id")
-    users = cursor.fetchall()
+    cursor.execute("SELECT COUNT(*) FROM users")
+    total = cursor.fetchone()[0]
 
-    total_users = len(users)
-    text = f"📊 Botdagi jami foydalanuvchilar: {total_users}\n\n"
-    for user_id, points, referrals, invited_by in users:
-        text += f"ID: {user_id} | Ball: {points} | Referallar: {referrals} | Referal orqali: {invited_by if invited_by else 'Yo‘q'}\n"
+    cursor.execute("SELECT SUM(referrals) FROM users")
+    total_refs = cursor.fetchone()[0] or 0
+
+    cursor.execute("SELECT SUM(points) FROM users")
+    total_points = cursor.fetchone()[0] or 0
+
+    text = (
+        "📊 ADMIN PANEL\n\n"
+        f"👥 Jami user: {total}\n"
+        f"🎁 Jami referal: {total_refs}\n"
+        f"⭐ Jami ball: {total_points}"
+    )
 
     await message.answer(text)
 
-# ==========================
-# CALLBACKS
-# ==========================
-@dp.callback_query(F.data == "check_sub")
-async def check_sub_handler(call: CallbackQuery):
-    user_id = call.from_user.id
-    is_sub = await check_subscription(user_id)
-    if is_sub:
-        await call.message.edit_text("🎉 Obuna tasdiqlandi!\nEndi botdan foydalanishingiz mumkin 🙂", reply_markup=main_menu())
-    else:
-        await call.answer("❌ Siz hali ham kanallarga obuna bo‘lmagansiz!", show_alert=True)
+@dp.message(Command("users"))
+async def export_users(message: Message):
+    if message.from_user.id not in ADMIN_IDS:
+        return
 
-@dp.callback_query(F.data == "back")
-async def back_handler(call: CallbackQuery):
-    await call.message.edit_text("🏠 Asosiy menyu:", reply_markup=main_menu())
+    cursor.execute("SELECT * FROM users")
+    users = cursor.fetchall()
 
-@dp.callback_query(F.data == "profile")
-async def profile_handler(call: CallbackQuery):
-    user_id = call.from_user.id
-    points, referrals = get_user(user_id)
-    await call.message.edit_text(
-        f"👋 Salom, @{call.from_user.username or 'user'}!\n⭐ Ballingiz: {points}\n👥 Do‘stlaringiz: {referrals}\n\n📌 Ball to‘plash orqali webinarni ochishingiz mumkin!",
-        reply_markup=back_menu()
-    )
+    wb = Workbook()
+    ws = wb.active
+    ws.append(["User ID", "Username", "Points", "Referrals", "Joined At"])
 
-@dp.callback_query(F.data == "referral")
-async def referral_handler(call: CallbackQuery):
-    user_id = call.from_user.id
-    bot_username = (await bot.get_me()).username
-    referral_link = f"https://t.me/{bot_username}?start={user_id}"
-    await call.message.edit_text(
-        f"🎁 Referal tizimi:\n\n🔗 Sizning referal linkingiz:\n{referral_link}\n\n📤 Do‘stlaringizga ulashing!",
-        reply_markup=back_menu()
-    )
+    for user in users:
+        ws.append(user)
 
-@dp.callback_query(F.data == "webinar")
-async def webinar_handler(call: CallbackQuery):
-    user_id = call.from_user.id
-    points, _ = get_user(user_id)
-    if points >= NEEDED_POINTS:
-        await call.message.edit_text("🎥 Sizda yetarli ball bor!\nWebinar havolasi quyida:", reply_markup=webinar_link_keyboard())
-    else:
-        need = NEEDED_POINTS - points
-        await call.message.edit_text(
-            f"😌 Hozirgi ballingiz: {points}\nWebinar uchun kerak: {NEEDED_POINTS}\n⭐ Sizga {need} ball yetishmayapti.\n\nBall to‘plash uchun boshqa imkoniyatlardan foydalaning.",
-            reply_markup=referral_button()
-        )
+    file_name = "users.xlsx"
+    wb.save(file_name)
 
-# ==========================
-# RUN
-# ==========================
+    await message.answer_document(open(file_name, "rb"))
+
+@dp.message(Command("broadcast"))
+async def broadcast(message: Message):
+    if message.from_user.id not in ADMIN_IDS:
+        return
+
+    text = message.text.replace("/broadcast ", "")
+    cursor.execute("SELECT user_id FROM users")
+    users = cursor.fetchall()
+
+    sent = 0
+    for user in users:
+        try:
+            await bot.send_message(user[0], text)
+            sent += 1
+        except:
+            pass
+
+    await message.answer(f"Yuborildi: {sent} ta userga")
+# =================================================
+
+# ================= RUN =================
 async def main():
     print("Bot ishga tushdi...")
     await dp.start_polling(bot)
