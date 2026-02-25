@@ -21,7 +21,7 @@ dp = Dispatcher()
 # ================= INIT DB =================
 async def init_db():
     async with aiosqlite.connect(DB_PATH) as db:
-        # create table if not exists
+        # 1️⃣ Create table if not exists
         await db.execute("""
         CREATE TABLE IF NOT EXISTS users (
             id INTEGER PRIMARY KEY,
@@ -33,15 +33,15 @@ async def init_db():
         """)
         await db.commit()
 
-        # add ref_code column if it doesn't exist
+        # 2️⃣ Add ref_code column if it doesn't exist
         try:
             await db.execute("ALTER TABLE users ADD COLUMN ref_code TEXT UNIQUE")
             await db.commit()
-        except:
-            # column already exists
-            pass
+            print("✅ ref_code column added")
+        except aiosqlite.OperationalError:
+            print("⚠ ref_code column already exists, skipped")
 
-        # generate ref_code for existing users without it
+        # 3️⃣ Generate ref_code for existing users without it
         async with db.execute("SELECT id, ref_code FROM users") as cur:
             rows = await cur.fetchall()
         for r in rows:
@@ -99,7 +99,6 @@ async def start_handler(message: Message):
     args = message.text.replace("/start","").strip()
     referrer = None
 
-    # referral code parser
     if args.startswith("ref_"):
         ref_code = args.split("_")[1]
         ref_user = await get_user_by_refcode(ref_code)
@@ -117,7 +116,6 @@ async def start_handler(message: Message):
                 (user_id, full_name, referrer, ref_code)
             )
             await db.commit()
-        # increment referral if applicable
         if referrer and referrer not in ADMIN_IDS:
             new_count = await increment_referral(referrer)
             await bot.send_message(referrer,
@@ -160,7 +158,7 @@ async def send_main_menu(message):
         ])
         await message.answer(text, reply_markup=keyboard)
 
-# ================= REFERRAL INFO =================
+# ================= REFERRAL =================
 async def send_referral_info(message):
     user_id = message.from_user.id
     user = await get_user(user_id)
@@ -179,7 +177,6 @@ async def send_referral_info(message):
         [InlineKeyboardButton(text="🔗 Nusxa olish", callback_data="copy_referral")],
         [InlineKeyboardButton(text="📩 Telegram orqali ulashish", url=f"https://t.me/share/url?url={referral_link}&text=Botga qo‘shiling")]
     ])
-
     await message.answer(text, reply_markup=keyboard)
 
 @dp.callback_query(F.data=="referral")
@@ -221,7 +218,7 @@ async def webinar_handler(callback: CallbackQuery):
         await callback.message.answer(f"❌ Siz hali {REQUIRED_REFERRALS} referral to‘plamagansiz.\n⭐ {count}/{REQUIRED_REFERRALS}\n{progress_bar(count)}")
     await callback.answer()
 
-# ================= ADMIN BROADCAST =================
+# ================= ADMIN =================
 admin_broadcasts = {}
 
 @dp.message(Command("xabar"))
@@ -245,7 +242,6 @@ async def broadcast_handler(message: Message):
         await message.answer("✅ Xabar barcha foydalanuvchilarga yuborildi.")
         admin_broadcasts.pop(message.from_user.id)
 
-# ================= STATS =================
 @dp.message(Command("stats"))
 async def stats_handler(message: Message):
     if message.from_user.id not in ADMIN_IDS:
