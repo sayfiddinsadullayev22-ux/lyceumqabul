@@ -11,7 +11,7 @@ ADMIN_IDS = [7618889413, 5541894729]
 CHANNELS = ["@Mirzokhid_blog", "@lyceumverse"]  # Majburiy kanallar
 WEBINAR_LINK = "https://t.me/+VT0CQQ0n4ag4YzQy"
 REQUIRED_REFERRALS = 3
-MAX_POINTS_BAR = 5
+MAX_POINTS_BAR = 3
 
 bot = Bot(token=TOKEN)
 dp = Dispatcher()
@@ -141,7 +141,7 @@ async def send_referral_info(message):
     )
 
     keyboard = InlineKeyboardMarkup(inline_keyboard=[
-        [InlineKeyboardButton(text="🔗 Copy referral link", url=referral_link)]
+        [InlineKeyboardButton(text="🔗 Referral linkni olish", callback_data="copy_referral")]
     ])
 
     await message.answer(text, reply_markup=keyboard)
@@ -150,6 +150,17 @@ async def send_referral_info(message):
 async def referral_handler(callback: CallbackQuery):
     await send_referral_info(callback.message)
     await callback.answer()
+
+# ================= COPY REFERRAL =================
+@dp.callback_query(F.data=="copy_referral")
+async def copy_referral_handler(callback: CallbackQuery):
+    user_id = callback.from_user.id
+    bot_info = await bot.get_me()
+    referral_link = f"https://t.me/{bot_info.username}?start={user_id}"
+
+    text = f"🔗 Sizning referal linkingiz:\n{referral_link}\n\n📤 Do‘stlaringizga ulashing!"
+    await callback.message.answer(text)
+    await callback.answer("✅ Link yuborildi. Nusxa oling!", show_alert=True)
 
 # ================= CHECK SUBSCRIPTION =================
 @dp.callback_query(F.data=="check_subs")
