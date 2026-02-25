@@ -12,7 +12,7 @@ ADMIN_IDS = [7618889413, 5541894729]
 CHANNELS = ["Mirzokhid_blog", "lyceumverse"]
 WEBINAR_LINK = "https://t.me/+VT0CQQ0n4ag4YzQy"
 REQUIRED_REFERRALS = 3
-DB_PATH = r"C:\lyceumqabul\database.db"  # Qo'lda yaratilgan DB
+DB_PATH = r"C:\lyceumqabul\database.db"
 
 bot = Bot(token=TOKEN)
 dp = Dispatcher()
@@ -22,7 +22,6 @@ db = None  # Global DB connection
 async def init_db():
     global db
     db = await aiosqlite.connect(DB_PATH)
-    # Agar referrer_id ustuni yo‘q bo‘lsa, qo‘shib qo‘yish
     try:
         await db.execute("ALTER TABLE users ADD COLUMN referrer_id INTEGER;")
         await db.commit()
@@ -93,8 +92,8 @@ async def start_handler(message: Message):
     if not user:
         ref_code = generate_ref_code()
         await db.execute(
-            "INSERT INTO users (id, full_name, referrer_id, referrals, ref_code) VALUES (?, ?, ?, 0, ?)",
-            (user_id, full_name, referrer, ref_code)
+            "INSERT INTO users (id, full_name, referrer_id, referrals, ref_code) VALUES (?, ?, ?, ?, ?)",
+            (user_id, full_name, referrer, 0, ref_code)
         )
         await db.commit()
         if referrer and referrer not in ADMIN_IDS:
@@ -157,7 +156,7 @@ async def send_referral_info(message):
     if not user:
         ref_code = generate_ref_code()
         await db.execute(
-            "INSERT INTO users (id, full_name, referrer_id, referrals, ref_code) VALUES (?, ?, ?, 0, ?)",
+            "INSERT INTO users (id, full_name, referrer_id, referrals, ref_code) VALUES (?, ?, ?, ?, ?)",
             (user_id, message.from_user.full_name, None, 0, ref_code)
         )
         await db.commit()
