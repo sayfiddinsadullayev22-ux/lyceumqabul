@@ -22,6 +22,13 @@ db = None  # Global DB connection
 async def init_db():
     global db
     db = await aiosqlite.connect(DB_PATH)
+    # Agar referrer_id ustuni yo‘q bo‘lsa, qo‘shib qo‘yish
+    try:
+        await db.execute("ALTER TABLE users ADD COLUMN referrer_id INTEGER;")
+        await db.commit()
+        print("✅ 'referrer_id' ustuni qo‘shildi.")
+    except aiosqlite.OperationalError:
+        print("✅ 'referrer_id' ustuni mavjud.")
     print("✅ DB ulanishi muvaffaqiyatli.")
 
 # ================= HELPERS =================
@@ -121,7 +128,7 @@ async def send_main_menu(message_or_callback):
                 [InlineKeyboardButton(text=f"📌 @{ch}", url=f"https://t.me/{ch}")] for ch in CHANNELS
             ] + [[InlineKeyboardButton(text="✅ Obunani tasdiqlash", callback_data="check_subs")]]
         )
-        if hasattr(message_or_callback, "message"):  # CallbackQuery
+        if hasattr(message_or_callback, "message"):
             await message_or_callback.message.answer(text, reply_markup=keyboard)
             await message_or_callback.answer()
         else:
@@ -137,7 +144,7 @@ async def send_main_menu(message_or_callback):
             [InlineKeyboardButton(text="🎁 Do‘st taklif qilish", callback_data="referral")],
             [InlineKeyboardButton(text="🎓 Webinar", callback_data="webinar")]
         ])
-        if hasattr(message_or_callback, "message"):  # CallbackQuery
+        if hasattr(message_or_callback, "message"):
             await message_or_callback.message.answer(text, reply_markup=keyboard)
             await message_or_callback.answer()
         else:
