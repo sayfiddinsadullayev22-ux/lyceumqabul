@@ -11,14 +11,13 @@ ADMIN_IDS = [7618889413, 5541894729]
 CHANNELS = ["@Mirzokhid_blog", "@lyceumverse"]  # Majburiy kanallar
 WEBINAR_LINK = "https://t.me/+VT0CQQ0n4ag4YzQy"
 REQUIRED_REFERRALS = 3
-MAX_POINTS_BAR = 5
+MAX_POINTS_BAR = 3
 
 bot = Bot(token=TOKEN)
 dp = Dispatcher()
-
 DB_PATH = "database.db"
 
-# ================= DB INIT =================
+# ================= DB =================
 async def init_db():
     async with aiosqlite.connect(DB_PATH) as db:
         await db.execute("""
@@ -78,19 +77,22 @@ async def send_main_menu(message):
     if not subscribed:
         text = "✅ Iltimos, avval quyidagi kanallarga obuna bo‘ling:"
         keyboard = InlineKeyboardMarkup(
-            inline_keyboard=[[InlineKeyboardButton(text=ch, url=f"https://t.me/{ch.replace('@','')}")] for ch in CHANNELS]
+            inline_keyboard=[
+                [InlineKeyboardButton(text=f"📌 {ch}", url=f"https://t.me/{ch.replace('@','')}")] for ch in CHANNELS
+            ]
         )
         sent_message = await message.answer(text, reply_markup=keyboard)
     else:
         text = (
-            "Ramazon Challenge’ga qatnashish uchun quyidagi ketma-ketlikni bajaring\n\n"
-            "1. Do‘stlarga referral yuboring\n"
-            "2. 3 ta referral to‘plaganingizdan keyin Webinar orqali yopiq kanal linkini oling\n\n"
+            "🎉 Ramazon Challenge’ga xush kelibsiz!\n\n"
+            "📌 Qoidalar:\n"
+            "1️⃣ Do‘stlarga referral yuboring.\n"
+            "2️⃣ 3 ta referral to‘plaganingizdan keyin Webinar orqali yopiq kanal linkini oling.\n\n"
             f"⭐ Sizning balingiz: {count}/{REQUIRED_REFERRALS}\n"
             f"{progress_bar(count)}"
         )
         keyboard = InlineKeyboardMarkup(inline_keyboard=[
-            [InlineKeyboardButton(text="👥 Do'st taklif qilish", url=referral_link)],
+            [InlineKeyboardButton(text="🎁 Do‘st taklif qilish", callback_data="referral")],
             [InlineKeyboardButton(text="🎓 Webinar", callback_data="webinar")]
         ])
         sent_message = await message.answer(text, reply_markup=keyboard)
@@ -130,7 +132,33 @@ async def start_handler(message: Message):
             await bot.send_message(referrer, f"🎉 Sizga yangi do‘st qo‘shildi!\n👤 Ismi: {full_name}\n⭐ Ballingiz: {new_count}/{REQUIRED_REFERRALS}")
     await send_main_menu(message)
 
-# ================= CALLBACKS =================
+# ================= REFERRAL INFO =================
+async def send_referral_info(message):
+    user_id = message.from_user.id
+    bot_info = await bot.get_me()
+    referral_link = f"https://t.me/{bot_info.username}?start={user_id}"
+
+    text = (
+        "🎁 Referal tizimi:\n\n"
+        "📌 Har bir odam sizning referalingiz orqali kirsa — 1 ball olasiz.\n\n"
+        f"🔗 Sizning referal linkingiz:\n{referral_link}\n\n"
+        "📤 Do‘stlaringizga ulashing!\n\n"
+        f"Telegram ({referral_link})\n"
+        "LyceumQabul\nLyceumverse tomonidan ishlab chiqilgan"
+    )
+
+    keyboard = InlineKeyboardMarkup(inline_keyboard=[
+        [InlineKeyboardButton(text="🔗 Copy referral link", url=referral_link)]
+    ])
+
+    await message.answer(text, reply_markup=keyboard)
+
+@dp.callback_query(F.data=="referral")
+async def referral_handler(callback: CallbackQuery):
+    await send_referral_info(callback.message)
+    await callback.answer()
+
+# ================= WEBINAR =================
 @dp.callback_query(F.data=="webinar")
 async def webinar_handler(callback: CallbackQuery):
     user_id = callback.from_user.id
