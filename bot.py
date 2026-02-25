@@ -34,14 +34,17 @@ async def init_db():
         await db.commit()
 
         # 2️⃣ Add ref_code column if it doesn't exist
-        try:
+        async with db.execute("PRAGMA table_info(users)") as cur:
+            columns = await cur.fetchall()
+        column_names = [col[1] for col in columns]
+        if "ref_code" not in column_names:
             await db.execute("ALTER TABLE users ADD COLUMN ref_code TEXT UNIQUE")
             await db.commit()
             print("✅ ref_code column added")
-        except aiosqlite.OperationalError:
-            print("⚠ ref_code column already exists, skipped")
+        else:
+            print("⚠ ref_code column already exists")
 
-        # 3️⃣ Generate ref_code for existing users without it
+        # 3️⃣ Generate ref_code for existing users
         async with db.execute("SELECT id, ref_code FROM users") as cur:
             rows = await cur.fetchall()
         for r in rows:
