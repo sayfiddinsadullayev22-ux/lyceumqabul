@@ -4,7 +4,6 @@ from aiogram import Bot, Dispatcher, F
 from aiogram.types import Message, CallbackQuery, InlineKeyboardButton, InlineKeyboardMarkup
 from aiogram.filters import Command, CommandStart
 
-# ===== CONFIG =====
 TOKEN = "8246098957:AAGtD7OGaD4ThJVGlJM6SSlLkGZ37JV5SY0"
 CHANNEL_1 = "@Mirzokhid_blog"
 CHANNEL_2 = "@lyceumverse"
@@ -14,23 +13,18 @@ ADMIN_IDS = [7618889413, 5541894729]
 bot = Bot(TOKEN)
 dp = Dispatcher()
 
-# ===== DATABASE =====
 db = sqlite3.connect("bot.db")
 cursor = db.cursor()
-cursor.execute("""
-CREATE TABLE IF NOT EXISTS users (
-    user_id INTEGER PRIMARY KEY
-)
-""")
+cursor.execute("""CREATE TABLE IF NOT EXISTS users (user_id INTEGER PRIMARY KEY)""")
 db.commit()
 
-# ===== INLINE MENU =====
+pending_broadcasts = {}
+
 def main_menu():
     return InlineKeyboardMarkup(inline_keyboard=[
         [InlineKeyboardButton(text="🎓 Webinar", callback_data="webinar")]
     ])
 
-# ===== CHECK SUBS =====
 async def check_subscription(user_id):
     try:
         member1 = await bot.get_chat_member(CHANNEL_1, user_id)
@@ -43,8 +37,6 @@ async def check_subscription(user_id):
 @dp.message(CommandStart())
 async def start(message: Message, command: CommandStart):
     user_id = message.from_user.id
-
-    # Foydalanuvchini bazaga qo'shish
     cursor.execute("INSERT OR IGNORE INTO users (user_id) VALUES (?)", (user_id,))
     db.commit()
 
@@ -58,7 +50,7 @@ async def start(message: Message, command: CommandStart):
         ])
         await message.answer("Iltimos 2 ta kanalga obuna bo‘ling 👇", reply_markup=kb)
 
-# ===== CHECK SUBS CALLBACK =====
+# ===== CHECK SUBS =====
 @dp.callback_query(F.data == "check_sub")
 async def check_sub(callback: CallbackQuery):
     user_id = callback.from_user.id
@@ -67,7 +59,7 @@ async def check_sub(callback: CallbackQuery):
     else:
         await callback.answer("Hali obuna bo‘lmagansiz ❌", show_alert=True)
 
-# ===== WEBINAR CALLBACK =====
+# ===== WEBINAR =====
 @dp.callback_query(F.data == "webinar")
 async def webinar(callback: CallbackQuery):
     user_id = callback.from_user.id
@@ -87,8 +79,6 @@ async def stats(message: Message):
     await message.answer(f"👥 Foydalanuvchilar soni: {total}")
 
 # ===== ADMIN BROADCAST =====
-pending_broadcasts = {}
-
 @dp.message(Command("xabar"))
 async def xabar_start(message: Message):
     admin_id = message.from_user.id
@@ -113,6 +103,5 @@ async def handle_broadcast_text(message: Message):
         await message.answer("Xabar barcha foydalanuvchilarga yuborildi ✅")
         pending_broadcasts.pop(admin_id)
 
-# ===== START POLLING =====
 if __name__ == "__main__":
     asyncio.run(dp.start_polling(bot))
