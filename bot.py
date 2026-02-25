@@ -5,7 +5,6 @@ import string
 from aiogram import Bot, Dispatcher, F
 from aiogram.types import Message, CallbackQuery, InlineKeyboardMarkup, InlineKeyboardButton
 from aiogram.filters import CommandStart, Command
-import os
 
 # ================= CONFIG =================
 TOKEN = "8246098957:AAGtD7OGaD4ThJVGlJM6SSlLkGZ37JV5SY0"
@@ -13,7 +12,7 @@ ADMIN_IDS = [7618889413, 5541894729]
 CHANNELS = ["Mirzokhid_blog", "lyceumverse"]
 WEBINAR_LINK = "https://t.me/+VT0CQQ0n4ag4YzQy"
 REQUIRED_REFERRALS = 3
-DB_PATH = "database.db"
+DB_PATH = r"C:\lyceumqabul\database.db"  # Qo'lda yaratilgan DB
 
 bot = Bot(token=TOKEN)
 dp = Dispatcher()
@@ -22,20 +21,8 @@ db = None  # Global DB connection
 # ================= DB INIT =================
 async def init_db():
     global db
-    if not os.path.exists(DB_PATH):
-        print("DB topilmadi, yaratilyapti...")
     db = await aiosqlite.connect(DB_PATH)
-    await db.execute("""
-        CREATE TABLE IF NOT EXISTS users (
-            id INTEGER PRIMARY KEY,
-            full_name TEXT,
-            referrer_id INTEGER,
-            referrals INTEGER DEFAULT 0,
-            ref_code TEXT UNIQUE
-        )
-    """)
-    await db.commit()
-    print("DB tayyor.")
+    print("✅ DB ulanishi muvaffaqiyatli.")
 
 # ================= HELPERS =================
 def generate_ref_code():
@@ -134,7 +121,7 @@ async def send_main_menu(message_or_callback):
                 [InlineKeyboardButton(text=f"📌 @{ch}", url=f"https://t.me/{ch}")] for ch in CHANNELS
             ] + [[InlineKeyboardButton(text="✅ Obunani tasdiqlash", callback_data="check_subs")]]
         )
-        if isinstance(message_or_callback, CallbackQuery):
+        if hasattr(message_or_callback, "message"):  # CallbackQuery
             await message_or_callback.message.answer(text, reply_markup=keyboard)
             await message_or_callback.answer()
         else:
@@ -150,7 +137,7 @@ async def send_main_menu(message_or_callback):
             [InlineKeyboardButton(text="🎁 Do‘st taklif qilish", callback_data="referral")],
             [InlineKeyboardButton(text="🎓 Webinar", callback_data="webinar")]
         ])
-        if isinstance(message_or_callback, CallbackQuery):
+        if hasattr(message_or_callback, "message"):  # CallbackQuery
             await message_or_callback.message.answer(text, reply_markup=keyboard)
             await message_or_callback.answer()
         else:
