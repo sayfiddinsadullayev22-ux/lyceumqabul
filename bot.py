@@ -21,29 +21,17 @@ dp = Dispatcher()
 # ================= INIT DB =================
 async def init_db():
     async with aiosqlite.connect(DB_PATH) as db:
-        # Jadval yaratish
         await db.execute("""
         CREATE TABLE IF NOT EXISTS users (
             id INTEGER PRIMARY KEY,
             full_name TEXT,
             referrer_id INTEGER,
             referrals INTEGER DEFAULT 0,
-            joined INTEGER DEFAULT 0
+            joined INTEGER DEFAULT 0,
+            ref_code TEXT
         )
         """)
         await db.commit()
-
-        # ref_code column mavjudligini tekshirish
-        async with db.execute("PRAGMA table_info(users)") as cur:
-            columns = await cur.fetchall()
-        column_names = [col[1] for col in columns]
-        if "ref_code" not in column_names:
-            # UNIQUE constraint qo‘ymaymiz
-            await db.execute("ALTER TABLE users ADD COLUMN ref_code TEXT")
-            await db.commit()
-            print("✅ ref_code column added (no UNIQUE)")
-        else:
-            print("⚠ ref_code column already exists")
 
         # Eski foydalanuvchilar uchun ref_code generatsiya
         async with db.execute("SELECT id, ref_code FROM users") as cur:
@@ -52,7 +40,7 @@ async def init_db():
         for r in rows:
             if not r[1]:
                 while True:
-                    code = ''.join(random.choices("0123456789", k=8))
+                    code = ''.join(random.choices(string.digits, k=8))
                     if code not in existing_codes:
                         existing_codes.add(code)
                         break
@@ -108,6 +96,7 @@ async def start_handler(message: Message):
     args = message.text.replace("/start","").strip()
     referrer = None
 
+    # Referral link orqali kirish
     if args.startswith("ref_"):
         ref_code = args.split("_")[1]
         ref_user = await get_user_by_refcode(ref_code)
@@ -118,6 +107,7 @@ async def start_handler(message: Message):
 
     user = await get_user(user_id)
     if not user:
+        # Yangi foydalanuvchi qo‘shish
         ref_code = generate_ref_code()
         async with aiosqlite.connect(DB_PATH) as db:
             await db.execute(
@@ -125,6 +115,7 @@ async def start_handler(message: Message):
                 (user_id, full_name, referrer, ref_code)
             )
             await db.commit()
+        # Referral balli qo‘shish
         if referrer and referrer not in ADMIN_IDS:
             new_count = await increment_referral(referrer)
             await bot.send_message(referrer,
@@ -218,7 +209,7 @@ async def webinar_handler(callback: CallbackQuery):
     user_id = callback.from_user.id
     count = await get_referrals(user_id)
     if not await is_subscribed(user_id):
-        await callback.message.answer("❌ Kanalga obuna bo‘lmadingiz.")
+        await callback.message.answer("❌ Kanalga obuna bo‘lmagansiz.")
         await callback.answer()
         return
     if count >= REQUIRED_REFERRALS:
