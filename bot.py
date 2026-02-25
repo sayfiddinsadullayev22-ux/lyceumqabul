@@ -1,5 +1,7 @@
 import asyncio
 import aiosqlite
+import random
+import string
 from aiogram import Bot, Dispatcher, F
 from aiogram.types import Message, CallbackQuery, InlineKeyboardMarkup, InlineKeyboardButton
 from aiogram.filters import CommandStart, Command
@@ -7,7 +9,7 @@ from aiogram.filters import CommandStart, Command
 # ================= CONFIG =================
 TOKEN = "8246098957:AAGtD7OGaD4ThJVGlJM6SSlLkGZ37JV5SY0"
 ADMIN_IDS = [7618889413, 5541894729]
-CHANNELS = ["Mirzokhid_blog", "lyceumverse"]  # '@' olib tashlandi
+CHANNELS = ["Mirzokhid_blog", "lyceumverse"]
 WEBINAR_LINK = "https://t.me/+VT0CQQ0n4ag4YzQy"
 REQUIRED_REFERRALS = 3
 MAX_POINTS_BAR = 3
@@ -23,17 +25,26 @@ async def init_db():
         CREATE TABLE IF NOT EXISTS users (
             id INTEGER PRIMARY KEY,
             full_name TEXT,
-            referrer INTEGER,
+            referrer_id INTEGER,
             referrals INTEGER DEFAULT 0,
-            joined INTEGER DEFAULT 0
+            joined INTEGER DEFAULT 0,
+            ref_code TEXT UNIQUE
         )
         """)
         await db.commit()
 
 # ================= HELPERS =================
+def generate_ref_code():
+    return ''.join(random.choices(string.digits, k=8))
+
 async def get_user(user_id):
     async with aiosqlite.connect(DB_PATH) as db:
         async with db.execute("SELECT * FROM users WHERE id=?", (user_id,)) as cur:
+            return await cur.fetchone()
+
+async def get_user_by_refcode(ref_code):
+    async with aiosqlite.connect(DB_PATH) as db:
+        async with db.execute("SELECT * FROM users WHERE ref_code=?", (ref_code,)) as cur:
             return await cur.fetchone()
 
 async def get_referrals(user_id):
@@ -71,33 +82,42 @@ async def start_handler(message: Message):
     args = message.text.replace("/start","").strip()
     referrer = None
 
+    # Referral code parser
     if args.startswith("ref_"):
-        try:
-            referrer = int(args.split("_")[1])
-            if referrer == user_id:
-                referrer = None
-        except:
+        ref_code = args.split("_")[1]
+        ref_user = await get_user_by_refcode(ref_code)
+        if ref_user:
+            referrer = ref_user[0]
+        if referrer == user_id:
             referrer = None
 
     user = await get_user(user_id)
     if not user:
+        ref_code = generate_ref_code()
         async with aiosqlite.connect(DB_PATH) as db:
             await db.execute(
-                "INSERT INTO users (id, full_name, referrer, referrals, joined) VALUES (?, ?, ?, 0, 1)",
-                (user_id, full_name, referrer)
+                "INSERT INTO users (id, full_name, referrer_id, referrals, joined, ref_code) VALUES (?, ?, ?, 0, 1, ?)",
+                (user_id, full_name, referrer, ref_code)
             )
             await db.commit()
+        # increment referral if applicable
         if referrer and referrer not in ADMIN_IDS:
             new_count = await increment_referral(referrer)
-            await bot.send_message(referrer, f"🎉 Yangi do‘st qo‘shildi!\n👤 Ismi: {full_name}\n⭐ Ballingiz: {new_count}/{REQUIRED_REFERRALS}")
+            await bot.send_message(referrer,
+                f"🎉 Yangi do‘st qo‘shildi!\n"
+                f"👤 Ismi: {full_name}\n"
+                f"⭐ Ballingiz: {new_count}/{REQUIRED_REFERRALS}\n"
+                f"{progress_bar(new_count)}"
+            )
     await send_main_menu(message)
 
 # ================= MENU =================
 async def send_main_menu(message):
     user_id = message.from_user.id
+    user = await get_user(user_id)
     count = await get_referrals(user_id)
     bot_info = await bot.get_me()
-    referral_link = f"https://t.me/{bot_info.username}?start=ref_{user_id}"
+    referral_link = f"https://t.me/{bot_info.username}?start=ref_{user[5]}"
     subscribed = await is_subscribed(user_id)
 
     if not subscribed:
@@ -126,8 +146,9 @@ async def send_main_menu(message):
 # ================= REFERRAL INFO =================
 async def send_referral_info(message):
     user_id = message.from_user.id
+    user = await get_user(user_id)
     bot_info = await bot.get_me()
-    referral_link = f"https://t.me/{bot_info.username}?start=ref_{user_id}"
+    referral_link = f"https://t.me/{bot_info.username}?start=ref_{user[5]}"
 
     text = (
         "🎁 Referal tizimi:\n\n"
@@ -152,13 +173,9 @@ async def referral_handler(callback: CallbackQuery):
 @dp.callback_query(F.data=="copy_referral")
 async def copy_referral_handler(callback: CallbackQuery):
     user_id = callback.from_user.id
-    bot_info = await bot.get_me()
-    referral_link = f"https://t.me/{bot_info.username}?start=ref_{user_id}"
-    text = (
-        f"🔗 Sizning referal linkingiz:\n{referral_link}\n\n"
-        "📤 Do‘stlaringizga ulashing!"
-    )
-    await callback.message.answer(text)
+    user = await get_user(user_id)
+    referral_link = f"https://t.me/{(await bot.get_me()).username}?start=ref_{user[5]}"
+    await callback.message.answer(f"🔗 Sizning referal linkingiz:\n{referral_link}\n📤 Do‘stlaringizga ulashing!")
     await callback.answer("✅ Link yuborildi", show_alert=True)
 
 # ================= CHECK SUBS =================
@@ -217,11 +234,11 @@ async def stats_handler(message: Message):
     if message.from_user.id not in ADMIN_IDS:
         return
     async with aiosqlite.connect(DB_PATH) as db:
-        async with db.execute("SELECT id, full_name, referrer, referrals FROM users") as cur:
+        async with db.execute("SELECT id, full_name, referrer_id, referrals, ref_code FROM users") as cur:
             users = await cur.fetchall()
     text = "📊 Hamma foydalanuvchilar:\n"
     for u in users:
-        text += f"ID: {u[0]}, Ism: {u[1]}, Referrer: {u[2]}, Referrals: {u[3]}\n"
+        text += f"ID: {u[0]}, Ism: {u[1]}, Referrer: {u[2]}, Referrals: {u[3]}, Ref_code: {u[4]}\n"
     await message.answer(text)
 
 # ================= RUN =================
