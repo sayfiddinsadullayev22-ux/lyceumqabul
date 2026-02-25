@@ -7,14 +7,14 @@ from aiogram.filters import CommandStart, Command
 # ================= CONFIG =================
 TOKEN = "8246098957:AAGtD7OGaD4ThJVGlJM6SSlLkGZ37JV5SY0"
 ADMIN_IDS = [7618889413, 5541894729]
-CHANNELS = ["Mirzokhid_blog", "lyceumverse"]
+CHANNELS = ["Mirzokhid_blog", "lyceumverse"]  # '@' olib tashlandi
 WEBINAR_LINK = "https://t.me/+VT0CQQ0n4ag4YzQy"
 REQUIRED_REFERRALS = 3
 MAX_POINTS_BAR = 3
+DB_PATH = "database.db"
 
 bot = Bot(token=TOKEN)
 dp = Dispatcher()
-DB_PATH = "database.db"
 
 # ================= INIT DB =================
 async def init_db():
@@ -63,7 +63,7 @@ async def increment_referral(referrer_id):
         await db.commit()
         return await get_referrals(referrer_id)
 
-# ================= START =================
+# ================= START HANDLER =================
 @dp.message(CommandStart())
 async def start_handler(message: Message):
     user_id = message.from_user.id
@@ -186,6 +186,30 @@ async def webinar_handler(callback: CallbackQuery):
     else:
         await callback.message.answer(f"❌ Siz hali {REQUIRED_REFERRALS} referral to‘plamagansiz.\n⭐ {count}/{REQUIRED_REFERRALS}\n{progress_bar(count)}")
     await callback.answer()
+
+# ================= ADMIN BROADCAST =================
+admin_broadcasts = {}
+
+@dp.message(Command("xabar"))
+async def broadcast_start(message: Message):
+    if message.from_user.id not in ADMIN_IDS:
+        return
+    admin_broadcasts[message.from_user.id] = True
+    await message.answer("📢 Admin: yubormoqchi bo‘lgan xabaringizni kiriting:")
+
+@dp.message()
+async def broadcast_handler(message: Message):
+    if message.from_user.id in admin_broadcasts:
+        async with aiosqlite.connect(DB_PATH) as db:
+            async with db.execute("SELECT id FROM users") as cur:
+                users = await cur.fetchall()
+        for u in users:
+            try:
+                await bot.send_message(u[0], message.text)
+            except:
+                continue
+        await message.answer("✅ Xabar barcha foydalanuvchilarga yuborildi.")
+        admin_broadcasts.pop(message.from_user.id)
 
 # ================= STATS =================
 @dp.message(Command("stats"))
