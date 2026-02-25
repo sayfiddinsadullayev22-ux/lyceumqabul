@@ -21,24 +21,33 @@ dp = Dispatcher()
 # ================= INIT DB =================
 async def init_db():
     async with aiosqlite.connect(DB_PATH) as db:
-        # Add ref_code column if not exists
+        # create table if not exists
         await db.execute("""
         CREATE TABLE IF NOT EXISTS users (
             id INTEGER PRIMARY KEY,
             full_name TEXT,
             referrer_id INTEGER,
             referrals INTEGER DEFAULT 0,
-            joined INTEGER DEFAULT 0,
-            ref_code TEXT UNIQUE
+            joined INTEGER DEFAULT 0
         )
         """)
-        # Generate ref_code for old users without it
+        await db.commit()
+
+        # add ref_code column if it doesn't exist
+        try:
+            await db.execute("ALTER TABLE users ADD COLUMN ref_code TEXT UNIQUE")
+            await db.commit()
+        except:
+            # column already exists
+            pass
+
+        # generate ref_code for existing users without it
         async with db.execute("SELECT id, ref_code FROM users") as cur:
-            users = await cur.fetchall()
-        for u in users:
-            if not u[1]:
-                code = ''.join(random.choices(string.digits, k=8))
-                await db.execute("UPDATE users SET ref_code=? WHERE id=?", (code, u[0]))
+            rows = await cur.fetchall()
+        for r in rows:
+            if not r[1]:
+                code = ''.join(random.choices("0123456789", k=8))
+                await db.execute("UPDATE users SET ref_code=? WHERE id=?", (code, r[0]))
         await db.commit()
 
 # ================= HELPERS =================
@@ -90,6 +99,7 @@ async def start_handler(message: Message):
     args = message.text.replace("/start","").strip()
     referrer = None
 
+    # referral code parser
     if args.startswith("ref_"):
         ref_code = args.split("_")[1]
         ref_user = await get_user_by_refcode(ref_code)
@@ -107,6 +117,7 @@ async def start_handler(message: Message):
                 (user_id, full_name, referrer, ref_code)
             )
             await db.commit()
+        # increment referral if applicable
         if referrer and referrer not in ADMIN_IDS:
             new_count = await increment_referral(referrer)
             await bot.send_message(referrer,
