@@ -28,6 +28,9 @@ CREATE TABLE IF NOT EXISTS users (
 """)
 db.commit()
 
+# ===== PENDING BROADCASTS =====
+pending_broadcasts = {}  # admin_id: True -> kutmoqda xabar
+
 # ===== INLINE MENU =====
 def main_menu(user_refs=0):
     return InlineKeyboardMarkup(inline_keyboard=[
@@ -49,10 +52,13 @@ async def check_subscription(user_id):
 async def start(message: Message, command: CommandStart):
     user_id = message.from_user.id
     args = command.args
+
+    # oldin bazada bormi tekshirish
     cursor.execute("SELECT * FROM users WHERE user_id=?", (user_id,))
     user = cursor.fetchone()
 
     if not user:
+        # yangi user qo‘shish
         referred_by = int(args) if args and args.isdigit() and int(args) != user_id else None
         cursor.execute("INSERT INTO users (user_id, referred_by) VALUES (?,?)", (user_id, referred_by))
         db.commit()
@@ -60,6 +66,7 @@ async def start(message: Message, command: CommandStart):
             cursor.execute("UPDATE users SET referrals = referrals + 1 WHERE user_id=?", (referred_by,))
             db.commit()
 
+    # referral sonini olish (avvalgi 0 ga tushmaydi)
     cursor.execute("SELECT referrals FROM users WHERE user_id=?", (user_id,))
     refs = cursor.fetchone()[0] or 0
 
@@ -135,26 +142,35 @@ async def stats(message: Message):
     total_refs = cursor.fetchone()[0] or 0
     await message.answer(f"👥 Foydalanuvchilar: {total}\n🔗 Jami referral: {total_refs}")
 
-# ===== ADMIN BROADCAST =====
+# ===== ADMIN BROADCAST START =====
 @dp.message(Command("xabar"))
-async def broadcast(message: Message):
-    if message.from_user.id not in ADMIN_IDS:
+async def xabar_start(message: Message):
+    admin_id = message.from_user.id
+    if admin_id not in ADMIN_IDS:
         await message.answer("Siz admin emassiz ❌")
         return
+    pending_broadcasts[admin_id] = True
+    await message.answer("Xabar matnini kiriting. Hammaga yuborish uchun yozing va yuboring:")
 
-    text = message.text.replace("/xabar ", "")
-    cursor.execute("SELECT user_id FROM users")
-    users = cursor.fetchall()
-    count = 0
-    for user in users:
-        try:
-            await bot.send_message(user[0], text)
-            count += 1
-            if count % 20 == 0:
-                await asyncio.sleep(1)
-        except:
-            pass
-    await message.answer("Xabar yuborildi ✅")
+# ===== HANDLE BROADCAST TEXT =====
+@dp.message()
+async def handle_broadcast_text(message: Message):
+    admin_id = message.from_user.id
+    if admin_id in pending_broadcasts:
+        text = message.text
+        cursor.execute("SELECT user_id FROM users")
+        users = cursor.fetchall()
+        count = 0
+        for user in users:
+            try:
+                await bot.send_message(user[0], text)
+                count += 1
+                if count % 20 == 0:
+                    await asyncio.sleep(1)
+            except:
+                pass
+        await message.answer("Xabar hammaga yuborildi ✅")
+        pending_broadcasts.pop(admin_id)
 
 # ===== START POLLING =====
 if __name__ == "__main__":
