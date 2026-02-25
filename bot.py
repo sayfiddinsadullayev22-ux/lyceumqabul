@@ -5,6 +5,7 @@ import string
 from aiogram import Bot, Dispatcher, F
 from aiogram.types import Message, CallbackQuery, InlineKeyboardMarkup, InlineKeyboardButton
 from aiogram.filters import CommandStart, Command
+import os
 
 # ================= CONFIG =================
 TOKEN = "8246098957:AAGtD7OGaD4ThJVGlJM6SSlLkGZ37JV5SY0"
@@ -18,9 +19,11 @@ bot = Bot(token=TOKEN)
 dp = Dispatcher()
 db = None  # Global DB connection
 
-# ================= INIT DB =================
+# ================= DB INIT =================
 async def init_db():
     global db
+    if not os.path.exists(DB_PATH):
+        print("DB topilmadi, yaratilyapti...")
     db = await aiosqlite.connect(DB_PATH)
     await db.execute("""
         CREATE TABLE IF NOT EXISTS users (
@@ -32,6 +35,7 @@ async def init_db():
         )
     """)
     await db.commit()
+    print("DB tayyor.")
 
 # ================= HELPERS =================
 def generate_ref_code():
@@ -73,7 +77,7 @@ async def is_subscribed(user_id):
             return False
     return True
 
-# ================= START HANDLER =================
+# ================= START =================
 @dp.message(CommandStart())
 async def start_handler(message: Message):
     user_id = message.from_user.id
@@ -99,7 +103,6 @@ async def start_handler(message: Message):
             (user_id, full_name, referrer, ref_code)
         )
         await db.commit()
-        # Referral egasiga ball qo‘shish
         if referrer and referrer not in ADMIN_IDS:
             new_count = await increment_referral(referrer)
             try:
@@ -111,20 +114,14 @@ async def start_handler(message: Message):
                 )
             except:
                 pass
-
     await send_main_menu(message)
 
 # ================= MENU =================
 async def send_main_menu(message_or_callback):
-    if isinstance(message_or_callback, CallbackQuery):
-        user_id = message_or_callback.from_user.id
-    else:
-        user_id = message_or_callback.from_user.id
-
+    user_id = message_or_callback.from_user.id
     user = await get_user(user_id)
     if not user:
-        return  # DB da topilmasa menu ko‘rsatmaymiz
-
+        return
     count = await get_referrals(user_id)
     bot_info = await bot.get_me()
     referral_link = f"https://t.me/{bot_info.username}?start=ref_{user[4]}"
@@ -145,11 +142,9 @@ async def send_main_menu(message_or_callback):
     else:
         text = (
             f"🎉 Ramazon Challenge’ga xush kelibsiz!\n\n"
-            f"📌 Qoidalar:\n"
-            f"1️⃣ Do‘stlarga referral yuboring.\n"
+            f"📌 Qoidalar:\n1️⃣ Do‘stlarga referral yuboring.\n"
             f"2️⃣ {REQUIRED_REFERRALS} ta referral to‘plangach Webinar orqali yopiq kanal linkini oling.\n\n"
-            f"⭐ Ballingiz: {count}/{REQUIRED_REFERRALS}\n"
-            f"{progress_bar(count)}"
+            f"⭐ Ballingiz: {count}/{REQUIRED_REFERRALS}\n{progress_bar(count)}"
         )
         keyboard = InlineKeyboardMarkup(inline_keyboard=[
             [InlineKeyboardButton(text="🎁 Do‘st taklif qilish", callback_data="referral")],
@@ -165,7 +160,6 @@ async def send_main_menu(message_or_callback):
 async def send_referral_info(message):
     user_id = message.from_user.id
     user = await get_user(user_id)
-
     if not user:
         ref_code = generate_ref_code()
         await db.execute(
@@ -177,14 +171,13 @@ async def send_referral_info(message):
 
     bot_info = await bot.get_me()
     referral_link = f"https://t.me/{bot_info.username}?start=ref_{user[4]}"
+    count = await get_referrals(user_id)
 
     text = (
-        "🎁 Referal tizimi:\n\n"
-        f"🔗 Sizning referal linkingiz:\n{referral_link}\n\n"
-        f"📌 Har bir do‘st sizni referal orqali qo‘shsa, 1 ball olasiz.\n"
-        "📤 Do‘stlaringizga ulashing!"
+        f"🎁 Referral tizimi:\n"
+        f"🔗 Sizning referal linkingiz:\n{referral_link}\n"
+        f"⭐ Ballingiz: {count}/{REQUIRED_REFERRALS}\n{progress_bar(count)}"
     )
-
     keyboard = InlineKeyboardMarkup(inline_keyboard=[
         [InlineKeyboardButton(text="📩 Telegram orqali ulashish", url=f"https://t.me/share/url?url={referral_link}&text=Botga qo‘shiling")]
     ])
