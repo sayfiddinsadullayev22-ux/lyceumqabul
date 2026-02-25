@@ -10,7 +10,7 @@ ADMIN_IDS = [7618889413, 5541894729]
 CHANNELS = ["@Mirzokhid_blog", "@lyceumverse"]
 WEBINAR_LINK = "https://t.me/+VT0CQQ0n4ag4YzQy"
 REQUIRED_REFERRALS = 3
-MAX_POINTS_BAR = 5
+MAX_POINTS_BAR = 3  # progress bar ⚪️⚪️⚪️
 
 bot = Bot(token=TOKEN)
 dp = Dispatcher()
@@ -44,7 +44,7 @@ async def get_referrals(user_id):
 
 def progress_bar(count):
     filled = "🟢" * min(count, MAX_POINTS_BAR)
-    empty = "⚪" * (MAX_POINTS_BAR - min(count, MAX_POINTS_BAR))
+    empty = "⚪️" * (MAX_POINTS_BAR - min(count, MAX_POINTS_BAR))
     return filled + empty
 
 async def is_subscribed(user_id):
@@ -63,7 +63,7 @@ async def increment_referral(referrer_id):
         await db.commit()
         return await get_referrals(referrer_id)
 
-# ================= START HANDLER =================
+# ================= START =================
 @dp.message(CommandStart())
 async def start_handler(message: Message):
     user_id = message.from_user.id
@@ -110,8 +110,12 @@ async def send_main_menu(message):
         await message.answer(text, reply_markup=keyboard)
     else:
         text = (
-            f"🎉 Ramazon Challenge!\n\n"
-            f"⭐ Ballingiz: {count}/{REQUIRED_REFERRALS}\n{progress_bar(count)}"
+            f"🎉 Ramazon Challenge’ga xush kelibsiz!\n\n"
+            f"📌 Qoidalar:\n"
+            f"1️⃣ Do‘stlarga referral yuboring.\n"
+            f"2️⃣ 3 ta referral to‘plaganingizdan keyin Webinar orqali yopiq kanal linkini oling.\n\n"
+            f"⭐️ Sizning balingiz: {count}/{REQUIRED_REFERRALS}\n"
+            f"{progress_bar(count)}"
         )
         keyboard = InlineKeyboardMarkup(inline_keyboard=[
             [InlineKeyboardButton(text="🎁 Do‘st taklif qilish", callback_data="referral")],
@@ -148,7 +152,10 @@ async def copy_referral_handler(callback: CallbackQuery):
     user_id = callback.from_user.id
     bot_info = await bot.get_me()
     referral_link = f"https://t.me/{bot_info.username}?start=ref_{user_id}"
-    text = f"🔗 Sizning referal linkingiz:\n{referral_link}\n📤 Do‘stlaringizga ulashing!"
+    text = (
+        f"🔗 Sizning referal linkingiz:\n{referral_link}\n"
+        "📤 Do‘stlaringizga ulashing!"
+    )
     await callback.message.answer(text)
     await callback.answer("✅ Link yuborildi", show_alert=True)
 
