@@ -9,7 +9,7 @@ from aiogram.filters import CommandStart, Command
 from aiogram.utils.keyboard import InlineKeyboardBuilder
 
 # ================= CONFIG =================
-TOKEN = "SIZNING_YANGI_TOKENINGIZ"  # xavfsiz token qo'ying
+TOKEN = "8246098957:AAGtD7OGaD4ThJVGlJM6SSlLkGZ37JV5SY0"  # xavfsiz token qo'ying
 ADMIN_IDS = [7618889413, 5541894729]
 CHANNELS = ["@Mirzokhid_blog", "@lyceumverse"]  # Kanallar majburiy obuna
 WEBINAR_LINK = "https://t.me/+VT0CQQ0n4ag4YzQy"
