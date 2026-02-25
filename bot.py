@@ -7,7 +7,7 @@ from aiogram.filters import CommandStart, Command
 # ================= CONFIG =================
 TOKEN = "8246098957:AAGtD7OGaD4ThJVGlJM6SSlLkGZ37JV5SY0"
 ADMIN_IDS = [7618889413, 5541894729]
-CHANNELS = ["@Mirzokhid_blog", "@lyceumverse"]
+CHANNELS = ["Mirzokhid_blog", "lyceumverse"]  # Telegram username, '@' olib tashlandi
 WEBINAR_LINK = "https://t.me/+VT0CQQ0n4ag4YzQy"
 REQUIRED_REFERRALS = 3
 MAX_POINTS_BAR = 3  # progress bar ⚪️⚪️⚪️
@@ -50,7 +50,7 @@ def progress_bar(count):
 async def is_subscribed(user_id):
     for ch in CHANNELS:
         try:
-            member = await bot.get_chat_member(ch, user_id)
+            member = await bot.get_chat_member(f"@{ch}", user_id)
             if member.status == "left":
                 return False
         except:
@@ -104,7 +104,7 @@ async def send_main_menu(message):
         text = "✅ Iltimos, avval quyidagi kanallarga obuna bo‘ling:"
         keyboard = InlineKeyboardMarkup(
             inline_keyboard=[
-                [InlineKeyboardButton(text=f"📌 {ch}", url=f"https://t.me/{ch.replace('@','')}")] for ch in CHANNELS
+                [InlineKeyboardButton(text=f"📌 @{ch}", url=f"https://t.me/{ch}")] for ch in CHANNELS
             ] + [[InlineKeyboardButton(text="✅ Obunani tasdiqlash", callback_data="check_subs")]]
         )
         await message.answer(text, reply_markup=keyboard)
