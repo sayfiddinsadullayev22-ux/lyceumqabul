@@ -9,14 +9,14 @@ from aiogram.filters import CommandStart, Command
 # ================= CONFIG =================
 TOKEN = "8246098957:AAGtD7OGaD4ThJVGlJM6SSlLkGZ37JV5SY0"
 ADMIN_IDS = [7618889413, 5541894729]
-CHANNELS = ["Mirzokhid_blog", "lyceumverse"]  # Majburiy obuna
+CHANNELS = ["Mirzokhid_blog", "lyceumverse"]
 WEBINAR_LINK = "https://t.me/+VT0CQQ0n4ag4YzQy"
 REQUIRED_REFERRALS = 3
 DB_PATH = "database.db"
 
 bot = Bot(token=TOKEN)
 dp = Dispatcher()
-db = None  # global db connection
+db = None  # Global DB connection
 
 # ================= INIT DB =================
 async def init_db():
@@ -88,7 +88,7 @@ async def start_handler(message: Message):
             ref_user = await get_user_by_refcode(ref_code)
             if ref_user:
                 referrer = ref_user[0]
-        if referrer == user_id:  # foydalanuvchi o‘zini referal qilib qo‘ymasligi
+        if referrer == user_id:
             referrer = None
 
     user = await get_user(user_id)
@@ -122,6 +122,9 @@ async def send_main_menu(message_or_callback):
         user_id = message_or_callback.from_user.id
 
     user = await get_user(user_id)
+    if not user:
+        return  # DB da topilmasa menu ko‘rsatmaymiz
+
     count = await get_referrals(user_id)
     bot_info = await bot.get_me()
     referral_link = f"https://t.me/{bot_info.username}?start=ref_{user[4]}"
@@ -144,7 +147,7 @@ async def send_main_menu(message_or_callback):
             f"🎉 Ramazon Challenge’ga xush kelibsiz!\n\n"
             f"📌 Qoidalar:\n"
             f"1️⃣ Do‘stlarga referral yuboring.\n"
-            f"2️⃣ 3 ta referral to‘plangach Webinar orqali yopiq kanal linkini oling.\n\n"
+            f"2️⃣ {REQUIRED_REFERRALS} ta referral to‘plangach Webinar orqali yopiq kanal linkini oling.\n\n"
             f"⭐ Ballingiz: {count}/{REQUIRED_REFERRALS}\n"
             f"{progress_bar(count)}"
         )
@@ -162,15 +165,24 @@ async def send_main_menu(message_or_callback):
 async def send_referral_info(message):
     user_id = message.from_user.id
     user = await get_user(user_id)
+
+    if not user:
+        ref_code = generate_ref_code()
+        await db.execute(
+            "INSERT INTO users (id, full_name, referrer_id, referrals, ref_code) VALUES (?, ?, ?, 0, ?)",
+            (user_id, message.from_user.full_name, None, 0, ref_code)
+        )
+        await db.commit()
+        user = await get_user(user_id)
+
     bot_info = await bot.get_me()
     referral_link = f"https://t.me/{bot_info.username}?start=ref_{user[4]}"
 
     text = (
         "🎁 Referal tizimi:\n\n"
-        "📌 Har bir odam sizning referalingiz orqali kirsa — 1 ball olasiz.\n\n"
         f"🔗 Sizning referal linkingiz:\n{referral_link}\n\n"
-        "📤 Do‘stlaringizga ulashing!\n\n"
-        f"Telegram ({referral_link})"
+        f"📌 Har bir do‘st sizni referal orqali qo‘shsa, 1 ball olasiz.\n"
+        "📤 Do‘stlaringizga ulashing!"
     )
 
     keyboard = InlineKeyboardMarkup(inline_keyboard=[
@@ -204,7 +216,10 @@ async def webinar_handler(callback: CallbackQuery):
         await callback.answer()
         return
     if count >= REQUIRED_REFERRALS:
-        await callback.message.answer(f"✅ Tabriklaymiz! Yopiq kanal link:\n{WEBINAR_LINK}")
+        keyboard = InlineKeyboardMarkup(inline_keyboard=[
+            [InlineKeyboardButton(text="🔗 Webinarga ulanish", url=WEBINAR_LINK)]
+        ])
+        await callback.message.answer("✅ Tabriklaymiz! Quyidagi tugma orqali webinarga ulaning:", reply_markup=keyboard)
     else:
         await callback.message.answer(f"❌ Siz hali {REQUIRED_REFERRALS} referral to‘plamagansiz.\n⭐ {count}/{REQUIRED_REFERRALS}\n{progress_bar(count)}")
     await callback.answer()
