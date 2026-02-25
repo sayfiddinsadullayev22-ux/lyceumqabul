@@ -22,8 +22,7 @@ cursor.execute("""
 CREATE TABLE IF NOT EXISTS users (
     user_id INTEGER PRIMARY KEY,
     referrals INTEGER DEFAULT 0,
-    referred_by INTEGER,
-    webinar_sent INTEGER DEFAULT 0
+    referred_by INTEGER
 )
 """)
 db.commit()
@@ -47,18 +46,6 @@ async def check_subscription(user_id):
     except:
         return False
 
-# ===== SEND WEBINAR LINK IF READY =====
-async def send_webinar_if_ready(user_id):
-    cursor.execute("SELECT referrals, webinar_sent FROM users WHERE user_id=?", (user_id,))
-    row = cursor.fetchone()
-    if not row:
-        return
-    refs, webinar_sent = row
-    if refs >= REQUIRED_REFERRALS and webinar_sent == 0:
-        await bot.send_message(user_id, f"🎓 Siz {REQUIRED_REFERRALS} referral to‘pladingiz!\nWebinar linki:\n{WEBINAR_LINK}")
-        cursor.execute("UPDATE users SET webinar_sent=1 WHERE user_id=?", (user_id,))
-        db.commit()
-
 # ===== START =====
 @dp.message(CommandStart())
 async def start(message: Message, command: CommandStart):
@@ -75,7 +62,6 @@ async def start(message: Message, command: CommandStart):
         if referred_by:
             cursor.execute("UPDATE users SET referrals = referrals + 1 WHERE user_id=?", (referred_by,))
             db.commit()
-            await send_webinar_if_ready(referred_by)
 
     cursor.execute("SELECT referrals FROM users WHERE user_id=?", (user_id,))
     refs = cursor.fetchone()[0]
@@ -96,8 +82,6 @@ async def start(message: Message, command: CommandStart):
         f"2️⃣ {REQUIRED_REFERRALS} ta referral to‘plaganingizdan keyin Webinar orqali yopiq kanal linkini oling.",
         reply_markup=main_menu(user_refs=refs)
     )
-
-    await send_webinar_if_ready(user_id)
 
 # ===== CHECK SUBS =====
 @dp.callback_query(F.data == "check_sub")
@@ -125,32 +109,25 @@ async def referral(callback: CallbackQuery):
         reply_markup=main_menu(user_refs=refs)
     )
 
-# ===== HANDLE REFERRAL FROM NEW USER =====
-@dp.message(CommandStart())
-async def referral_start(message: Message, command: CommandStart):
-    user_id = message.from_user.id
-    args = command.args
-    if args and args.isdigit():
-        referred_by = int(args)
-        if referred_by != user_id:
-            cursor.execute("UPDATE users SET referrals = referrals + 1 WHERE user_id=?", (referred_by,))
-            db.commit()
-            asyncio.create_task(send_webinar_if_ready(referred_by))
-
 # ===== WEBINAR =====
 @dp.callback_query(F.data == "webinar")
 async def webinar(callback: CallbackQuery):
     user_id = callback.from_user.id
     cursor.execute("SELECT referrals FROM users WHERE user_id=?", (user_id,))
-    refs = cursor.fetchone()[0]
-    remaining = max(REQUIRED_REFERRALS - refs, 0)
+    refs = cursor.fetchone()[0] or 0
 
-    await callback.message.edit_text(
-        f"🎓 Webinar holati:\n"
-        f"✅ Sizning ballaringiz (referral): {refs}\n"
-        f"🔗 Yetishmagan referral: {remaining}",
-        reply_markup=main_menu(user_refs=refs)
-    )
+    if refs >= REQUIRED_REFERRALS:
+        await callback.message.edit_text(
+            f"🎓 Sizning referral ballaringiz: {refs}\n"
+            f"Webinar linki:\n{WEBINAR_LINK}"
+        )
+    else:
+        remaining = REQUIRED_REFERRALS - refs
+        await callback.message.edit_text(
+            f"⚠️ Sizning referral ballaringiz: {refs}\n"
+            f"Yana {remaining} ta do‘st taklif qiling, shunda webinarga kira olasiz!",
+            reply_markup=main_menu(user_refs=refs)
+        )
 
 # ===== ADMIN STATS =====
 @dp.message(Command("stats"))
