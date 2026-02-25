@@ -1,4 +1,5 @@
 import asyncio
+import sqlite3
 from aiogram import Bot, Dispatcher, F
 from aiogram.types import Message, CallbackQuery, InlineKeyboardButton, InlineKeyboardMarkup
 from aiogram.filters import Command, CommandStart
@@ -12,6 +13,16 @@ ADMIN_IDS = [7618889413, 5541894729]
 
 bot = Bot(TOKEN)
 dp = Dispatcher()
+
+# ===== DATABASE =====
+db = sqlite3.connect("bot.db")
+cursor = db.cursor()
+cursor.execute("""
+CREATE TABLE IF NOT EXISTS users (
+    user_id INTEGER PRIMARY KEY
+)
+""")
+db.commit()
 
 # ===== INLINE MENU =====
 def main_menu():
@@ -32,8 +43,12 @@ async def check_subscription(user_id):
 @dp.message(CommandStart())
 async def start(message: Message, command: CommandStart):
     user_id = message.from_user.id
+
+    # Foydalanuvchini bazaga qo'shish
+    cursor.execute("INSERT OR IGNORE INTO users (user_id) VALUES (?)", (user_id,))
+    db.commit()
+
     if await check_subscription(user_id):
-        # Foydalanuvchi obuna → webinar linki
         await message.answer(f"🎓 Siz kanallarga obuna bo‘lgansiz!\nWebinar linki:\n{WEBINAR_LINK}", reply_markup=main_menu())
     else:
         kb = InlineKeyboardMarkup(inline_keyboard=[
@@ -67,7 +82,9 @@ async def stats(message: Message):
     if message.from_user.id not in ADMIN_IDS:
         await message.answer("Siz admin emassiz ❌")
         return
-    await message.answer("Foydalanuvchi statistikasi hozircha yo‘q (referral olib tashlandi)")
+    cursor.execute("SELECT COUNT(*) FROM users")
+    total = cursor.fetchone()[0]
+    await message.answer(f"👥 Foydalanuvchilar soni: {total}")
 
 # ===== ADMIN BROADCAST =====
 pending_broadcasts = {}
@@ -79,20 +96,21 @@ async def xabar_start(message: Message):
         await message.answer("Siz admin emassiz ❌")
         return
     pending_broadcasts[admin_id] = True
-    await message.answer("Xabar matnini yozing. Hammaga yuborish uchun yozing va yuboring:")
+    await message.answer("Xabar matnini kiriting. Hammaga yuborish uchun yozing va yuboring:")
 
 @dp.message()
 async def handle_broadcast_text(message: Message):
     admin_id = message.from_user.id
     if admin_id in pending_broadcasts:
         text = message.text
-        # Hamma foydalanuvchilarga yuborish: hozircha faqat adminlarga demo
-        for uid in ADMIN_IDS:
+        cursor.execute("SELECT user_id FROM users")
+        users = cursor.fetchall()
+        for user in users:
             try:
-                await bot.send_message(uid, text)
+                await bot.send_message(user[0], text)
             except:
                 pass
-        await message.answer("Xabar adminlarga yuborildi ✅ (foydalanuvchi bazasi yo‘q)")
+        await message.answer("Xabar barcha foydalanuvchilarga yuborildi ✅")
         pending_broadcasts.pop(admin_id)
 
 # ===== START POLLING =====
