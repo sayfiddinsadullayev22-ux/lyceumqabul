@@ -21,6 +21,7 @@ dp = Dispatcher()
 # ================= INIT DB =================
 async def init_db():
     async with aiosqlite.connect(DB_PATH) as db:
+        # Add ref_code column if not exists
         await db.execute("""
         CREATE TABLE IF NOT EXISTS users (
             id INTEGER PRIMARY KEY,
@@ -31,6 +32,13 @@ async def init_db():
             ref_code TEXT UNIQUE
         )
         """)
+        # Generate ref_code for old users without it
+        async with db.execute("SELECT id, ref_code FROM users") as cur:
+            users = await cur.fetchall()
+        for u in users:
+            if not u[1]:
+                code = ''.join(random.choices(string.digits, k=8))
+                await db.execute("UPDATE users SET ref_code=? WHERE id=?", (code, u[0]))
         await db.commit()
 
 # ================= HELPERS =================
@@ -82,7 +90,6 @@ async def start_handler(message: Message):
     args = message.text.replace("/start","").strip()
     referrer = None
 
-    # Referral code parser
     if args.startswith("ref_"):
         ref_code = args.split("_")[1]
         ref_user = await get_user_by_refcode(ref_code)
@@ -100,7 +107,6 @@ async def start_handler(message: Message):
                 (user_id, full_name, referrer, ref_code)
             )
             await db.commit()
-        # increment referral if applicable
         if referrer and referrer not in ADMIN_IDS:
             new_count = await increment_referral(referrer)
             await bot.send_message(referrer,
