@@ -2,13 +2,14 @@ import asyncio
 import logging
 import sqlite3
 from datetime import datetime
+
 from aiogram import Bot, Dispatcher, F
 from aiogram.types import Message, CallbackQuery
 from aiogram.filters import CommandStart, Command
 from aiogram.utils.keyboard import InlineKeyboardBuilder
 
 # ================= CONFIG =================
-TOKEN = "8246098957:AAGtD7OGaD4ThJVGlJM6SSlLkGZ37JV5SY0"
+TOKEN = "SIZNING_YANGI_TOKENINGIZ"  # xavfsiz token qo'ying
 ADMIN_IDS = [7618889413, 5541894729]
 CHANNELS = ["@Mirzokhid_blog", "@lyceumverse"]  # Kanallar majburiy obuna
 WEBINAR_LINK = "https://t.me/+VT0CQQ0n4ag4YzQy"
@@ -74,7 +75,8 @@ async def is_subscribed(user_id: int):
             member = await bot.get_chat_member(channel, user_id)
             if member.status in ["left", "kicked"]:
                 return False
-        except:
+        except Exception as e:
+            logging.warning(f"Channel check failed: {e}")
             return False
     return True
 
@@ -87,15 +89,18 @@ async def start_handler(message: Message):
 
     # Referral tekshirish
     args = message.text.split()
-    if len(args) > 1 and args[1].isdigit():
-        ref_id = int(args[1])
-        if ref_id != user_id:
-            cursor.execute("SELECT * FROM invites WHERE user_id=?", (user_id,))
-            if not cursor.fetchone():
-                cursor.execute("INSERT INTO invites(user_id, invited_by) VALUES(?,?)", (user_id, ref_id))
-                add_points(ref_id, 1)
-                add_referral(ref_id)
-                db.commit()
+    if len(args) > 1:
+        try:
+            ref_id = int(args[1])
+            if ref_id != user_id:
+                cursor.execute("SELECT * FROM invites WHERE user_id=?", (user_id,))
+                if not cursor.fetchone():
+                    cursor.execute("INSERT INTO invites(user_id, invited_by) VALUES(?,?)", (user_id, ref_id))
+                    add_points(ref_id, 1)
+                    add_referral(ref_id)
+                    db.commit()
+        except:
+            pass  # referral noto‘g‘ri kiritilgan bo‘lsa, e’tiborsiz qoldiramiz
 
     user = get_user(user_id)
     ref_count = user[3]
@@ -103,7 +108,6 @@ async def start_handler(message: Message):
 
     kb = InlineKeyboardBuilder()
 
-    # Agar foydalanuvchi kanallarga obuna bo‘lmasa, obuna tugmalari qo‘shamiz
     if not subscribed:
         for channel in CHANNELS:
             kb.button(text=f"🔔 Obuna bo‘ling {channel}", url=f"https://t.me/{channel.strip('@')}")
@@ -148,7 +152,7 @@ async def webinar(call: CallbackQuery):
     if user[3] >= REQUIRED_REFERRALS and subscribed:
         await call.message.edit_text(
             f"🎥 Webinar havolasi:\n{WEBINAR_LINK}\n\n"
-            f"✅ Sizda {user[1]} ball va {user[3]} referal mavjud."
+            f"✅ Sizda {user[2]} ball va {user[3]} referal mavjud."
         )
     else:
         needed_ref = max(0, REQUIRED_REFERRALS - user[3])
@@ -162,15 +166,12 @@ async def webinar(call: CallbackQuery):
 @dp.callback_query(F.data.startswith("get_ref_"))
 async def get_referral(call: CallbackQuery):
     ref_user_id = call.from_user.id
-    referal_link = f"https://t.me/{BOT_USERNAME}?start={ref_user_id}"
+    referral_link = f"https://t.me/{BOT_USERNAME}?start={ref_user_id}"
     text = (
         f"🎁 Referal tizimi:\n\n"
         f"📌 Har bir odam sizning referalingiz orqali kirsa — 1 ball olasiz.\n\n"
-        f"🔗 Sizning referal linkingiz:\n{referal_link}\n\n"
-        f"📤 Do‘stlaringizga ulashing!\n\n"
-        f"Telegram ({referal_link})\n"
-        f"LyceumQabul\n"
-        f"Lyceumverse tomonidan ishlab chiqilgan"
+        f"🔗 Sizning referal linkingiz:\n{referral_link}\n\n"
+        f"📤 Do‘stlaringizga ulashing!"
     )
     await call.message.answer(text)
     await call.answer("Referal link tayyor!", show_alert=True)
