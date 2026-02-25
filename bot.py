@@ -11,7 +11,7 @@ ADMIN_IDS = [7618889413, 5541894729]
 CHANNELS = ["@Mirzokhid_blog", "@lyceumverse"]  # Majburiy kanallar
 WEBINAR_LINK = "https://t.me/+VT0CQQ0n4ag4YzQy"
 REQUIRED_REFERRALS = 3
-MAX_POINTS_BAR = 3
+MAX_POINTS_BAR = 5
 
 bot = Bot(token=TOKEN)
 dp = Dispatcher()
@@ -79,9 +79,9 @@ async def send_main_menu(message):
         keyboard = InlineKeyboardMarkup(
             inline_keyboard=[
                 [InlineKeyboardButton(text=f"📌 {ch}", url=f"https://t.me/{ch.replace('@','')}")] for ch in CHANNELS
-            ]
+            ] + [[InlineKeyboardButton(text="✅ Obunani tasdiqlash", callback_data="check_subs")]]
         )
-        sent_message = await message.answer(text, reply_markup=keyboard)
+        await message.answer(text, reply_markup=keyboard)
     else:
         text = (
             "🎉 Ramazon Challenge’ga xush kelibsiz!\n\n"
@@ -95,14 +95,7 @@ async def send_main_menu(message):
             [InlineKeyboardButton(text="🎁 Do‘st taklif qilish", callback_data="referral")],
             [InlineKeyboardButton(text="🎓 Webinar", callback_data="webinar")]
         ])
-        sent_message = await message.answer(text, reply_markup=keyboard)
-
-    async with aiosqlite.connect(DB_PATH) as db:
-        await db.execute(
-            "UPDATE users SET last_menu_message_id=? WHERE id=?",
-            (sent_message.message_id, user_id)
-        )
-        await db.commit()
+        await message.answer(text, reply_markup=keyboard)
 
 # ================= START HANDLER =================
 @dp.message(CommandStart())
@@ -156,6 +149,19 @@ async def send_referral_info(message):
 @dp.callback_query(F.data=="referral")
 async def referral_handler(callback: CallbackQuery):
     await send_referral_info(callback.message)
+    await callback.answer()
+
+# ================= CHECK SUBSCRIPTION =================
+@dp.callback_query(F.data=="check_subs")
+async def check_subscription(callback: CallbackQuery):
+    user_id = callback.from_user.id
+    subscribed = await is_subscribed(user_id)
+
+    if subscribed:
+        await callback.message.answer("✅ Siz kanalga obuna bo‘ldingiz! Endi botdan foydalanishingiz mumkin.")
+        await send_main_menu(callback.message)
+    else:
+        await callback.message.answer("❌ Siz hali barcha kanallarga obuna bo‘lmagansiz. Iltimos, avval obuna bo‘ling.")
     await callback.answer()
 
 # ================= WEBINAR =================
