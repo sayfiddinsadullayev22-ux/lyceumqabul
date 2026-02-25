@@ -4,6 +4,7 @@ from aiogram import Bot, Dispatcher, F
 from aiogram.types import Message, CallbackQuery, InlineKeyboardButton, InlineKeyboardMarkup
 from aiogram.filters import Command, CommandStart
 
+# ===== CONFIG =====
 TOKEN = "8246098957:AAGtD7OGaD4ThJVGlJM6SSlLkGZ37JV5SY0"
 CHANNEL_1 = "@Mirzokhid_blog"
 CHANNEL_2 = "@lyceumverse"
@@ -13,18 +14,19 @@ ADMIN_IDS = [7618889413, 5541894729]
 bot = Bot(TOKEN)
 dp = Dispatcher()
 
+# ===== DATABASE =====
 db = sqlite3.connect("bot.db")
 cursor = db.cursor()
 cursor.execute("""CREATE TABLE IF NOT EXISTS users (user_id INTEGER PRIMARY KEY)""")
 db.commit()
 
-pending_broadcasts = {}
-
+# ===== INLINE MENU =====
 def main_menu():
     return InlineKeyboardMarkup(inline_keyboard=[
         [InlineKeyboardButton(text="🎓 Webinar", callback_data="webinar")]
     ])
 
+# ===== CHECK SUBS =====
 async def check_subscription(user_id):
     try:
         member1 = await bot.get_chat_member(CHANNEL_1, user_id)
@@ -79,6 +81,8 @@ async def stats(message: Message):
     await message.answer(f"👥 Foydalanuvchilar soni: {total}")
 
 # ===== ADMIN BROADCAST =====
+pending_broadcasts = {}
+
 @dp.message(Command("xabar"))
 async def xabar_start(message: Message):
     admin_id = message.from_user.id
@@ -95,13 +99,19 @@ async def handle_broadcast_text(message: Message):
         text = message.text
         cursor.execute("SELECT user_id FROM users")
         users = cursor.fetchall()
+        count = 0
         for user in users:
             try:
                 await bot.send_message(user[0], text)
+                count += 1
+                # Telegram limitini oldini olish uchun har 20 foydalanuvchidan keyin 1 soniya kutadi
+                if count % 20 == 0:
+                    await asyncio.sleep(1)
             except:
                 pass
-        await message.answer("Xabar barcha foydalanuvchilarga yuborildi ✅")
+        await message.answer("✅ Xabar barcha foydalanuvchilarga yuborildi")
         pending_broadcasts.pop(admin_id)
 
+# ===== START POLLING =====
 if __name__ == "__main__":
     asyncio.run(dp.start_polling(bot))
