@@ -126,8 +126,10 @@ async def send_referral_info(message):
     referral_link = f"https://t.me/{bot_info.username}?start=ref_{user_id}"
     text = (
         "🎁 Referal tizimi:\n\n"
+        "📌 Har bir odam sizning referalingiz orqali kirsa — 1 ball olasiz.\n\n"
         f"🔗 Sizning referal linkingiz:\n{referral_link}\n\n"
-        "📤 Do‘stlaringizga ulashing!"
+        "📤 Do‘stlaringizga ulashing!\n\n"
+        f"Telegram ({referral_link})\nLyceumQabul\nLyceumverse tomonidan ishlab chiqilgan"
     )
     keyboard = InlineKeyboardMarkup(inline_keyboard=[
         [InlineKeyboardButton(text="🔗 Nusxa olish", callback_data="copy_referral")],
