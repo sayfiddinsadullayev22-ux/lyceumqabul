@@ -8,7 +8,7 @@ from aiogram.filters import CommandStart, Command
 # ================= CONFIG =================
 TOKEN = "8246098957:AAGtD7OGaD4ThJVGlJM6SSlLkGZ37JV5SY0"
 ADMIN_IDS = [7618889413, 5541894729]
-CHANNELS = ["@Mirzokhid_blog", "@lyceumverse"]  # Majburiy kanallar
+CHANNELS = ["@Mirzokhid_blog", "@lyceumverse"]
 WEBINAR_LINK = "https://t.me/+VT0CQQ0n4ag4YzQy"
 REQUIRED_REFERRALS = 3
 MAX_POINTS_BAR = 3
@@ -25,8 +25,7 @@ async def init_db():
             id INTEGER PRIMARY KEY,
             full_name TEXT,
             referrer INTEGER,
-            referrals INTEGER DEFAULT 0,
-            last_menu_message_id INTEGER
+            referrals INTEGER DEFAULT 0
         )
         """)
         await db.commit()
@@ -104,6 +103,8 @@ async def start_handler(message: Message):
     full_name = message.from_user.full_name
     args = message.text.split()
     referrer = None
+
+    # referral ball faqat ?start=ID orqali kirganda
     if len(args) > 1:
         try:
             referrer = int(args[1])
@@ -123,6 +124,7 @@ async def start_handler(message: Message):
         if referrer and referrer not in ADMIN_IDS:
             new_count = await increment_referral(referrer)
             await bot.send_message(referrer, f"🎉 Sizga yangi do‘st qo‘shildi!\n👤 Ismi: {full_name}\n⭐ Ballingiz: {new_count}/{REQUIRED_REFERRALS}")
+
     await send_main_menu(message)
 
 # ================= REFERRAL INFO =================
