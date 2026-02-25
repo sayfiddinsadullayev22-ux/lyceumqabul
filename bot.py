@@ -7,10 +7,10 @@ from aiogram.filters import CommandStart, Command
 # ================= CONFIG =================
 TOKEN = "8246098957:AAGtD7OGaD4ThJVGlJM6SSlLkGZ37JV5SY0"
 ADMIN_IDS = [7618889413, 5541894729]
-CHANNELS = ["Mirzokhid_blog", "lyceumverse"]  # Telegram username, '@' olib tashlandi
+CHANNELS = ["Mirzokhid_blog", "lyceumverse"]  # Telegram usernames, '@' olib tashlandi
 WEBINAR_LINK = "https://t.me/+VT0CQQ0n4ag4YzQy"
 REQUIRED_REFERRALS = 3
-MAX_POINTS_BAR = 3  # progress bar ⚪️⚪️⚪️
+MAX_POINTS_BAR = 3
 
 bot = Bot(token=TOKEN)
 dp = Dispatcher()
@@ -118,57 +118,10 @@ async def send_main_menu(message):
             f"{progress_bar(count)}"
         )
         keyboard = InlineKeyboardMarkup(inline_keyboard=[
-            [InlineKeyboardButton(text="🎁 Do‘st taklif qilish", callback_data="referral")],
+            [InlineKeyboardButton(text="🎁 Do‘st taklif qilish", url=referral_link)],
             [InlineKeyboardButton(text="🎓 Webinar", callback_data="webinar")]
         ])
         await message.answer(text, reply_markup=keyboard)
-
-# ================= REFERRAL =================
-async def send_referral_info(message):
-    user_id = message.from_user.id
-    bot_info = await bot.get_me()
-    referral_link = f"https://t.me/{bot_info.username}?start=ref_{user_id}"
-    text = (
-        "🎁 Referal tizimi:\n\n"
-        "📌 Har bir odam sizning referalingiz orqali kirsa — 1 ball olasiz.\n\n"
-        f"🔗 Sizning referal linkingiz:\n{referral_link}\n\n"
-        "📤 Do‘stlaringizga ulashing!\n\n"
-        f"Telegram ({referral_link})\nLyceumQabul\nLyceumverse tomonidan ishlab chiqilgan"
-    )
-    keyboard = InlineKeyboardMarkup(inline_keyboard=[
-        [InlineKeyboardButton(text="🔗 Nusxa olish", callback_data="copy_referral")],
-        [InlineKeyboardButton(text="📩 Telegram orqali ulashish", url=f"https://t.me/share/url?url={referral_link}&text=Botga qo‘shiling")]
-    ])
-    await message.answer(text, reply_markup=keyboard)
-
-@dp.callback_query(F.data=="referral")
-async def referral_handler(callback: CallbackQuery):
-    await send_referral_info(callback.message)
-    await callback.answer()
-
-# ================= COPY REFERRAL =================
-@dp.callback_query(F.data=="copy_referral")
-async def copy_referral_handler(callback: CallbackQuery):
-    user_id = callback.from_user.id
-    bot_info = await bot.get_me()
-    referral_link = f"https://t.me/{bot_info.username}?start=ref_{user_id}"
-    text = (
-        f"🔗 Sizning referal linkingiz:\n{referral_link}\n"
-        "📤 Do‘stlaringizga ulashing!"
-    )
-    await callback.message.answer(text)
-    await callback.answer("✅ Link yuborildi", show_alert=True)
-
-# ================= CHECK SUBS =================
-@dp.callback_query(F.data=="check_subs")
-async def check_subscription(callback: CallbackQuery):
-    user_id = callback.from_user.id
-    if await is_subscribed(user_id):
-        await callback.message.answer("✅ Kanalga obuna bo‘ldingiz!")
-        await send_main_menu(callback.message)
-    else:
-        await callback.message.answer("❌ Siz hali barcha kanallarga obuna bo‘lmagansiz.")
-    await callback.answer()
 
 # ================= WEBINAR =================
 @dp.callback_query(F.data=="webinar")
@@ -183,6 +136,17 @@ async def webinar_handler(callback: CallbackQuery):
         await callback.message.answer(f"✅ Tabriklaymiz! Yopiq kanal link:\n{WEBINAR_LINK}")
     else:
         await callback.message.answer(f"❌ Siz hali {REQUIRED_REFERRALS} referral to‘plamagansiz.\n⭐ {count}/{REQUIRED_REFERRALS}\n{progress_bar(count)}")
+    await callback.answer()
+
+# ================= CHECK SUBS =================
+@dp.callback_query(F.data=="check_subs")
+async def check_subscription(callback: CallbackQuery):
+    user_id = callback.from_user.id
+    if await is_subscribed(user_id):
+        await callback.message.answer("✅ Kanalga obuna bo‘ldingiz!")
+        await send_main_menu(callback.message)
+    else:
+        await callback.message.answer("❌ Siz hali barcha kanallarga obuna bo‘lmagansiz.")
     await callback.answer()
 
 # ================= STATS =================
