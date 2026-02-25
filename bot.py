@@ -11,7 +11,7 @@ ADMIN_IDS = [7618889413, 5541894729]
 CHANNELS = ["@Mirzokhid_blog", "@lyceumverse"]
 WEBINAR_LINK = "https://t.me/+VT0CQQ0n4ag4YzQy"
 REQUIRED_REFERRALS = 3
-MAX_POINTS_BAR = 3
+MAX_POINTS_BAR = 5
 
 bot = Bot(token=TOKEN)
 dp = Dispatcher()
