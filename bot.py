@@ -1,196 +1,185 @@
 import asyncio
 import logging
 import sqlite3
-import os
-
+from datetime import datetime
 from aiogram import Bot, Dispatcher, F
-from aiogram.types import (
-    Message,
-    CallbackQuery,
-    InlineKeyboardMarkup,
-    InlineKeyboardButton
-)
+from aiogram.types import Message, CallbackQuery
 from aiogram.filters import CommandStart, Command
+from aiogram.utils.keyboard import InlineKeyboardBuilder
+from openpyxl import Workbook
 
 # ================= CONFIG =================
-
-TOKEN = os.getenv("BOT_TOKEN")
-
+TOKEN = "8246098957:AAGtD7OGaD4ThJVGlJM6SSlLkGZ37JV5SY0"
 ADMIN_IDS = [7618889413, 5541894729]
-WEBINAR_LINK = "https://t.me/+VT0CQQ0n4ag4YzQy"
-REQUIRED_REFERRALS = 3
+CHANNELS = ["@Mirzokhid_blog", "@lyceumverse"]
+WEBINAR_LINK = "https://t.me/yourlink"
+REQUIRED_REFERRALS = 2
+MAX_POINTS_BAR = 5
+# ==========================================
 
-# ================= INIT =================
+logging.basicConfig(level=logging.INFO)
 
-bot = Bot(token=TOKEN)
+bot = Bot(TOKEN)
 dp = Dispatcher()
 
-conn = sqlite3.connect("database.db")
-cursor = conn.cursor()
+# ================= DATABASE =================
+db = sqlite3.connect("database.db")
+cursor = db.cursor()
 
 cursor.execute("""
-CREATE TABLE IF NOT EXISTS users (
-    id INTEGER PRIMARY KEY,
-    full_name TEXT,
-    referrer INTEGER,
-    referrals INTEGER DEFAULT 0
+CREATE TABLE IF NOT EXISTS users(
+    user_id INTEGER PRIMARY KEY,
+    username TEXT,
+    points INTEGER DEFAULT 0,
+    referrals INTEGER DEFAULT 0,
+    joined_at TEXT
 )
 """)
-conn.commit()
 
-# ================= FUNCTIONS =================
+cursor.execute("""
+CREATE TABLE IF NOT EXISTS invites(
+    user_id INTEGER PRIMARY KEY,
+    invited_by INTEGER
+)
+""")
+
+db.commit()
+# ============================================
+
+# ================= DB FUNCTIONS =================
+def add_user(user_id, username):
+    cursor.execute("""
+    INSERT OR IGNORE INTO users(user_id, username, joined_at)
+    VALUES(?,?,?)
+    """, (user_id, username or "Do‘st", datetime.now().strftime("%Y-%m-%d %H:%M")))
+    db.commit()
 
 def get_user(user_id):
-    cursor.execute("SELECT * FROM users WHERE id=?", (user_id,))
+    cursor.execute("SELECT * FROM users WHERE user_id=?", (user_id,))
     return cursor.fetchone()
 
-def get_referrals(user_id):
-    cursor.execute("SELECT referrals FROM users WHERE id=?", (user_id,))
-    result = cursor.fetchone()
-    return result[0] if result else 0
+def add_points(user_id, amount=1):
+    cursor.execute("UPDATE users SET points=points+? WHERE user_id=?", (amount, user_id))
+    db.commit()
 
-def progress_bar(count):
-    filled = "🟢" * min(count, REQUIRED_REFERRALS)
-    empty = "⚪" * (REQUIRED_REFERRALS - min(count, REQUIRED_REFERRALS))
-    return filled + empty
+def add_referral(user_id):
+    cursor.execute("UPDATE users SET referrals=referrals+1 WHERE user_id=?", (user_id,))
+    db.commit()
+
+def total_users():
+    cursor.execute("SELECT COUNT(*) FROM users")
+    return cursor.fetchone()[0]
+
+# Progress bar uchun funksiya
+def user_bar(points, max_points=MAX_POINTS_BAR):
+    full_block = "🟩"
+    empty_block = "⬜️"
+    points = min(points, max_points)
+    return full_block*points + empty_block*(max_points-points)
 
 # ================= START =================
-
 @dp.message(CommandStart())
 async def start_handler(message: Message):
     user_id = message.from_user.id
-    full_name = message.from_user.full_name
+    username = message.from_user.username or "Do‘st"
+
+    add_user(user_id, username)
+
+    # Referral ID tekshirish
     args = message.text.split()
+    if len(args) > 1 and args[1].isdigit():
+        ref_id = int(args[1])
+        if ref_id != user_id:
+            cursor.execute("SELECT * FROM invites WHERE user_id=?", (user_id,))
+            if not cursor.fetchone():
+                cursor.execute("INSERT INTO invites(user_id, invited_by) VALUES(?,?)", (user_id, ref_id))
+                add_points(ref_id, 1)
+                add_referral(ref_id)
+                db.commit()
 
-    referrer = None
-    if len(args) > 1:
-        try:
-            referrer = int(args[1])
-        except:
-            pass
+    user = get_user(user_id)
+    ref_count = user[3]  # referrals
 
-    exists = get_user(user_id)
-
-    if not exists:
-        if referrer == user_id:
-            referrer = None
-
-        cursor.execute(
-            "INSERT INTO users (id, full_name, referrer, referrals) VALUES (?, ?, ?, 0)",
-            (user_id, full_name, referrer)
-        )
-        conn.commit()
-
-        if referrer and referrer not in ADMIN_IDS:
-            cursor.execute(
-                "UPDATE users SET referrals = referrals + 1 WHERE id=?",
-                (referrer,)
-            )
-            conn.commit()
-
-            new_count = get_referrals(referrer)
-
-            await bot.send_message(
-                referrer,
-                f"🎉 Sizga yangi do'st qo‘shildi!\n\n"
-                f"👤 Ismi: {full_name}\n"
-                f"⭐ Sizning balingiz: {new_count}/{REQUIRED_REFERRALS}\n"
-                f"{progress_bar(new_count)}"
-            )
-
-    await send_main_menu(message)
-
-# ================= MENU =================
-
-async def send_main_menu(message):
-    user_id = message.from_user.id
-    count = get_referrals(user_id)
-
-    bot_info = await bot.get_me()
-    referral_link = f"https://t.me/{bot_info.username}?start={user_id}"
-
-    text = (
-        "Ramazon Challenge’ga qatnashish uchun quyidagi ketma-ketlikni bajaring\n\n"
-        "1. “Do’stlarga ulashish” tugmasini bosib, 3ta do’stingizni taklif qiling\n\n"
-        "2. “Webinar”ga qo’shilishni bosing, va biz sizga yopiq kanal linkini beramiz\n\n"
-        f"⭐ Sizning balingiz: {count}/{REQUIRED_REFERRALS}\n"
-        f"{progress_bar(count)}"
-    )
-
-    keyboard = InlineKeyboardMarkup(inline_keyboard=[
-        [
-            InlineKeyboardButton(
-                text="👥 Do'st taklif qilish",
-                url=f"https://t.me/share/url?url={referral_link}"
-            )
-        ],
-        [
-            InlineKeyboardButton(
-                text="🎓 Webinar",
-                callback_data="webinar"
-            )
-        ]
-    ])
-
-    await message.answer(text, reply_markup=keyboard)
-
-# ================= WEBINAR =================
-
-@dp.callback_query(F.data == "webinar")
-async def webinar_handler(callback: CallbackQuery):
-    user_id = callback.from_user.id
-    count = get_referrals(user_id)
-
-    if count >= REQUIRED_REFERRALS:
-        await callback.message.answer(
-            f"✅ Tabriklaymiz!\n\n"
-            f"Yopiq kanal link:\n{WEBINAR_LINK}"
+    # Inline keyboard
+    kb = InlineKeyboardBuilder()
+    if ref_count >= REQUIRED_REFERRALS:
+        kb.button(text="🟩🎥 Webinarga kirish", callback_data="webinar")
+        msg_text = (
+            f"👋 Salom, {username}!\n\n"
+            "Siz barcha shartlarni bajardingiz. Endi Webinar tugmasini bosib, qatnashishingiz mumkin."
         )
     else:
-        await callback.message.answer(
-            f"❌ Siz hali 3 ta do‘st taklif qilmagansiz.\n\n"
-            f"⭐ {count}/{REQUIRED_REFERRALS}\n"
-            f"{progress_bar(count)}"
+        needed = REQUIRED_REFERRALS - ref_count
+        kb.button(text="🎥 Webinar (referal yetarli emas)", callback_data="webinar_disabled")
+        msg_text = (
+            f"👋 Salom, {username}!\n\n"
+            f"Webinarda qatnashish uchun kamida {REQUIRED_REFERRALS} referal kerak.\n"
+            f"Hozir sizda {ref_count} referal bor. Yana {needed} ta do‘stingizni taklif qiling."
         )
+    kb.adjust(1)
+    await message.answer(msg_text, reply_markup=kb.as_markup())
 
-    await callback.answer()
+# ================= CALLBACKS =================
+@dp.callback_query(F.data == "webinar")
+async def webinar(call: CallbackQuery):
+    user = get_user(call.from_user.id)
+    if user[3] >= REQUIRED_REFERRALS:
+        await call.message.edit_text(
+            f"🎥 Webinar havolasi:\n{WEBINAR_LINK}\n✅ Sizda {user[3]} referal mavjud."
+        )
+    else:
+        await call.answer("⚠️ Sizning referal soningiz yetarli emas.", show_alert=True)
+
+@dp.callback_query(F.data == "webinar_disabled")
+async def webinar_disabled(call: CallbackQuery):
+    user = get_user(call.from_user.id)
+    needed = max(0, REQUIRED_REFERRALS - user[3])
+    await call.answer(f"⚠️ Hozir kamida {needed} ta qo‘shimcha referal kerak.", show_alert=True)
 
 # ================= STATS =================
-
 @dp.message(Command("stats"))
-async def stats_handler(message: Message):
+async def stats(message: Message):
+    cursor.execute("SELECT username, points, referrals FROM users ORDER BY points DESC")
+    users = cursor.fetchall()
+
+    if not users:
+        await message.answer("❌ Hozircha foydalanuvchilar yo‘q.")
+        return
+
+    text = "📊 Foydalanuvchilar jadvali\n\n"
+    for user in users:
+        bar = user_bar(user[1])
+        text += f"{user[0] or 'Do‘st'} {bar} ⭐ ({user[1]} ball, {user[2]} referal)\n"
+
+    await message.answer(text)
+
+# ================= ADMIN PANEL =================
+@dp.message(Command("panel"))
+async def admin_panel(message: Message):
     if message.from_user.id not in ADMIN_IDS:
         return
 
     cursor.execute("SELECT COUNT(*) FROM users")
-    total_users = cursor.fetchone()[0]
+    total = cursor.fetchone()[0]
 
     cursor.execute("SELECT SUM(referrals) FROM users")
     total_refs = cursor.fetchone()[0] or 0
 
-    cursor.execute("""
-        SELECT full_name, referrals
-        FROM users
-        ORDER BY referrals DESC
-        LIMIT 5
-    """)
-    top_users = cursor.fetchall()
+    cursor.execute("SELECT SUM(points) FROM users")
+    total_points = cursor.fetchone()[0] or 0
 
-    top_text = ""
-    for i, user in enumerate(top_users, start=1):
-        top_text += f"{i}. {user[0]} — {user[1]} ball\n"
-
-    await message.answer(
-        f"📊 Statistika\n\n"
-        f"👥 Foydalanuvchilar: {total_users}\n"
-        f"🔗 Jami referallar: {total_refs}\n\n"
-        f"🏆 Top 5:\n{top_text if top_text else 'Ma’lumot yo‘q'}"
+    text = (
+        "📊 ADMIN PANEL\n\n"
+        f"👥 Jami user: {total}\n"
+        f"🎁 Jami referal: {total_refs}\n"
+        f"⭐ Jami ball: {total_points}"
     )
 
-# ================= RUN =================
+    await message.answer(text)
 
+# ================= RUN =================
 async def main():
-    logging.basicConfig(level=logging.INFO)
+    print("Bot ishga tushdi...")
     await dp.start_polling(bot)
 
 if __name__ == "__main__":
