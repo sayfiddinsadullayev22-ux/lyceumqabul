@@ -12,7 +12,6 @@ ADMIN_IDS = [7618889413, 5541894729]
 CHANNELS = ["Mirzokhid_blog", "lyceumverse"]
 WEBINAR_LINK = "https://t.me/+VT0CQQ0n4ag4YzQy"
 REQUIRED_REFERRALS = 3
-MAX_POINTS_BAR = 3
 DB_PATH = "database.db"
 
 bot = Bot(token=TOKEN)
@@ -27,24 +26,9 @@ async def init_db():
             full_name TEXT,
             referrer_id INTEGER,
             referrals INTEGER DEFAULT 0,
-            joined INTEGER DEFAULT 0,
             ref_code TEXT
         )
         """)
-        await db.commit()
-
-        # Eski foydalanuvchilar uchun ref_code generatsiya
-        async with db.execute("SELECT id, ref_code FROM users") as cur:
-            rows = await cur.fetchall()
-        existing_codes = {r[1] for r in rows if r[1]}
-        for r in rows:
-            if not r[1]:
-                while True:
-                    code = ''.join(random.choices(string.digits, k=8))
-                    if code not in existing_codes:
-                        existing_codes.add(code)
-                        break
-                await db.execute("UPDATE users SET ref_code=? WHERE id=?", (code, r[0]))
         await db.commit()
 
 # ================= HELPERS =================
@@ -68,9 +52,15 @@ async def get_referrals(user_id):
             return r[0] if r else 0
 
 def progress_bar(count):
-    filled = "🟢" * min(count, MAX_POINTS_BAR)
-    empty = "⚪️" * (MAX_POINTS_BAR - min(count, MAX_POINTS_BAR))
+    filled = "🟢" * min(count, REQUIRED_REFERRALS)
+    empty = "⚪️" * (REQUIRED_REFERRALS - min(count, REQUIRED_REFERRALS))
     return filled + empty
+
+async def increment_referral(referrer_id):
+    async with aiosqlite.connect(DB_PATH) as db:
+        await db.execute("UPDATE users SET referrals = referrals + 1 WHERE id=?", (referrer_id,))
+        await db.commit()
+        return await get_referrals(referrer_id)
 
 async def is_subscribed(user_id):
     for ch in CHANNELS:
@@ -81,12 +71,6 @@ async def is_subscribed(user_id):
         except:
             return False
     return True
-
-async def increment_referral(referrer_id):
-    async with aiosqlite.connect(DB_PATH) as db:
-        await db.execute("UPDATE users SET referrals = referrals + 1 WHERE id=?", (referrer_id,))
-        await db.commit()
-        return await get_referrals(referrer_id)
 
 # ================= START HANDLER =================
 @dp.message(CommandStart())
@@ -111,7 +95,7 @@ async def start_handler(message: Message):
         ref_code = generate_ref_code()
         async with aiosqlite.connect(DB_PATH) as db:
             await db.execute(
-                "INSERT INTO users (id, full_name, referrer_id, referrals, joined, ref_code) VALUES (?, ?, ?, 0, 1, ?)",
+                "INSERT INTO users (id, full_name, referrer_id, referrals, ref_code) VALUES (?, ?, ?, 0, ?)",
                 (user_id, full_name, referrer, ref_code)
             )
             await db.commit()
@@ -132,11 +116,11 @@ async def send_main_menu(message):
     user = await get_user(user_id)
     count = await get_referrals(user_id)
     bot_info = await bot.get_me()
-    referral_link = f"https://t.me/{bot_info.username}?start=ref_{user[5]}"
+    referral_link = f"https://t.me/{bot_info.username}?start=ref_{user[4]}"
     subscribed = await is_subscribed(user_id)
 
     if not subscribed:
-        text = "✅ Iltimos, avval quyidagi kanallarga obuna bo‘ling:"
+        text = "✅ Iltimos, quyidagi kanallarga obuna bo‘ling:"
         keyboard = InlineKeyboardMarkup(
             inline_keyboard=[
                 [InlineKeyboardButton(text=f"📌 @{ch}", url=f"https://t.me/{ch}")] for ch in CHANNELS
@@ -148,8 +132,8 @@ async def send_main_menu(message):
             f"🎉 Ramazon Challenge’ga xush kelibsiz!\n\n"
             f"📌 Qoidalar:\n"
             f"1️⃣ Do‘stlarga referral yuboring.\n"
-            f"2️⃣ 3 ta referral to‘plaganingizdan keyin Webinar orqali yopiq kanal linkini oling.\n\n"
-            f"⭐️ Sizning balingiz: {count}/{REQUIRED_REFERRALS}\n"
+            f"2️⃣ 3 ta referral to‘plangach Webinar orqali yopiq kanal linkini oling.\n\n"
+            f"⭐ Ballingiz: {count}/{REQUIRED_REFERRALS}\n"
             f"{progress_bar(count)}"
         )
         keyboard = InlineKeyboardMarkup(inline_keyboard=[
@@ -163,7 +147,7 @@ async def send_referral_info(message):
     user_id = message.from_user.id
     user = await get_user(user_id)
     bot_info = await bot.get_me()
-    referral_link = f"https://t.me/{bot_info.username}?start=ref_{user[5]}"
+    referral_link = f"https://t.me/{bot_info.username}?start=ref_{user[4]}"
 
     text = (
         "🎁 Referal tizimi:\n\n"
@@ -174,7 +158,6 @@ async def send_referral_info(message):
     )
 
     keyboard = InlineKeyboardMarkup(inline_keyboard=[
-        [InlineKeyboardButton(text="🔗 Nusxa olish", callback_data="copy_referral")],
         [InlineKeyboardButton(text="📩 Telegram orqali ulashish", url=f"https://t.me/share/url?url={referral_link}&text=Botga qo‘shiling")]
     ])
     await message.answer(text, reply_markup=keyboard)
@@ -183,14 +166,6 @@ async def send_referral_info(message):
 async def referral_handler(callback: CallbackQuery):
     await send_referral_info(callback.message)
     await callback.answer()
-
-@dp.callback_query(F.data=="copy_referral")
-async def copy_referral_handler(callback: CallbackQuery):
-    user_id = callback.from_user.id
-    user = await get_user(user_id)
-    referral_link = f"https://t.me/{(await bot.get_me()).username}?start=ref_{user[5]}"
-    await callback.message.answer(f"🔗 Sizning referal linkingiz:\n{referral_link}\n📤 Do‘stlaringizga ulashing!")
-    await callback.answer("✅ Link yuborildi", show_alert=True)
 
 # ================= CHECK SUBS =================
 @dp.callback_query(F.data=="check_subs")
