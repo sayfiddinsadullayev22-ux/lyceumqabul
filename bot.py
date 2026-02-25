@@ -21,7 +21,7 @@ dp = Dispatcher()
 # ================= INIT DB =================
 async def init_db():
     async with aiosqlite.connect(DB_PATH) as db:
-        # 1️⃣ Create table if not exists
+        # Jadval yaratish
         await db.execute("""
         CREATE TABLE IF NOT EXISTS users (
             id INTEGER PRIMARY KEY,
@@ -33,23 +33,29 @@ async def init_db():
         """)
         await db.commit()
 
-        # 2️⃣ Add ref_code column if it doesn't exist
+        # ref_code column mavjudligini tekshirish
         async with db.execute("PRAGMA table_info(users)") as cur:
             columns = await cur.fetchall()
         column_names = [col[1] for col in columns]
         if "ref_code" not in column_names:
-            await db.execute("ALTER TABLE users ADD COLUMN ref_code TEXT UNIQUE")
+            # UNIQUE constraint qo‘ymaymiz
+            await db.execute("ALTER TABLE users ADD COLUMN ref_code TEXT")
             await db.commit()
-            print("✅ ref_code column added")
+            print("✅ ref_code column added (no UNIQUE)")
         else:
             print("⚠ ref_code column already exists")
 
-        # 3️⃣ Generate ref_code for existing users
+        # Eski foydalanuvchilar uchun ref_code generatsiya
         async with db.execute("SELECT id, ref_code FROM users") as cur:
             rows = await cur.fetchall()
+        existing_codes = {r[1] for r in rows if r[1]}
         for r in rows:
             if not r[1]:
-                code = ''.join(random.choices("0123456789", k=8))
+                while True:
+                    code = ''.join(random.choices("0123456789", k=8))
+                    if code not in existing_codes:
+                        existing_codes.add(code)
+                        break
                 await db.execute("UPDATE users SET ref_code=? WHERE id=?", (code, r[0]))
         await db.commit()
 
