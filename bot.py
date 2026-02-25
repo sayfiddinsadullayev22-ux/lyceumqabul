@@ -9,7 +9,7 @@ from aiogram.filters import CommandStart, Command
 # ================= CONFIG =================
 TOKEN = "8246098957:AAGtD7OGaD4ThJVGlJM6SSlLkGZ37JV5SY0"
 ADMIN_IDS = [7618889413, 5541894729]
-CHANNELS = ["Mirzokhid_blog", "lyceumverse"]
+CHANNELS = ["Mirzokhid_blog", "lyceumverse"]  # Majburiy obuna
 WEBINAR_LINK = "https://t.me/+VT0CQQ0n4ag4YzQy"
 REQUIRED_REFERRALS = 3
 DB_PATH = "database.db"
@@ -26,7 +26,7 @@ async def init_db():
             full_name TEXT,
             referrer_id INTEGER,
             referrals INTEGER DEFAULT 0,
-            ref_code TEXT
+            ref_code TEXT UNIQUE
         )
         """)
         await db.commit()
@@ -91,7 +91,6 @@ async def start_handler(message: Message):
 
     user = await get_user(user_id)
     if not user:
-        # Yangi foydalanuvchi qo‘shish
         ref_code = generate_ref_code()
         async with aiosqlite.connect(DB_PATH) as db:
             await db.execute(
@@ -99,7 +98,8 @@ async def start_handler(message: Message):
                 (user_id, full_name, referrer, ref_code)
             )
             await db.commit()
-        # Referral balli qo‘shish
+        user = await get_user(user_id)
+        # Referral egasiga ball qo‘shish
         if referrer and referrer not in ADMIN_IDS:
             new_count = await increment_referral(referrer)
             await bot.send_message(referrer,
@@ -108,6 +108,7 @@ async def start_handler(message: Message):
                 f"⭐ Ballingiz: {new_count}/{REQUIRED_REFERRALS}\n"
                 f"{progress_bar(new_count)}"
             )
+
     await send_main_menu(message)
 
 # ================= MENU =================
