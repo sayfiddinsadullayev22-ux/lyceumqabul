@@ -61,30 +61,38 @@ async def webinar(callback: CallbackQuery):
     else:
         await callback.message.edit_text("⚠️ Siz hali 2 ta kanalga obuna bo‘lmadingiz. Iltimos obuna bo‘ling va keyin qayta urinib ko‘ring!")
 
-# ===== ADMIN STATS & BROADCAST =====
-@dp.message(commands=["stats"])
+# ===== ADMIN STATS =====
+@dp.message(Command("stats"))
 async def stats(message: Message):
     if message.from_user.id not in ADMIN_IDS:
+        await message.answer("Siz admin emassiz ❌")
         return
     await message.answer("Foydalanuvchi statistikasi hozircha yo‘q (referral olib tashlandi)")
 
-@dp.message(commands=["xabar"])
+# ===== ADMIN BROADCAST =====
+pending_broadcasts = {}
+
+@dp.message(Command("xabar"))
 async def xabar_start(message: Message):
     admin_id = message.from_user.id
     if admin_id not in ADMIN_IDS:
         await message.answer("Siz admin emassiz ❌")
         return
-    await message.answer("Xabar matnini yozing. Hammaga yuborish uchun yuboring:")
     pending_broadcasts[admin_id] = True
-
-pending_broadcasts = {}
+    await message.answer("Xabar matnini yozing. Hammaga yuborish uchun yozing va yuboring:")
 
 @dp.message()
 async def handle_broadcast_text(message: Message):
     admin_id = message.from_user.id
     if admin_id in pending_broadcasts:
         text = message.text
-        await bot.send_message(ADMIN_IDS[0], f"Hammaga yuboriladigan xabar: {text}")
+        # Hamma foydalanuvchilarga yuborish: hozircha faqat adminlarga demo
+        for uid in ADMIN_IDS:
+            try:
+                await bot.send_message(uid, text)
+            except:
+                pass
+        await message.answer("Xabar adminlarga yuborildi ✅ (foydalanuvchi bazasi yo‘q)")
         pending_broadcasts.pop(admin_id)
 
 # ===== START POLLING =====
