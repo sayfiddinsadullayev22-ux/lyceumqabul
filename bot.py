@@ -4,14 +4,13 @@ from aiogram import Bot, Dispatcher, F
 from aiogram.types import Message, CallbackQuery, InlineKeyboardButton, InlineKeyboardMarkup
 from aiogram.filters import Command, CommandStart
 
-# ====== CONFIG ======
+# ===== CONFIG =====
 TOKEN = "8246098957:AAGtD7OGaD4ThJVGlJM6SSlLkGZ37JV5SY0"
 CHANNEL_1 = "@Mirzokhid_blog"
 CHANNEL_2 = "@lyceumverse"
 WEBINAR_LINK = "https://t.me/+VT0CQQ0n4ag4YzQy"
 ADMIN_IDS = [7618889413, 5541894729]
 REQUIRED_REFERRALS = 2
-# ===================
 
 bot = Bot(TOKEN)
 dp = Dispatcher()
@@ -30,7 +29,7 @@ CREATE TABLE IF NOT EXISTS users (
 db.commit()
 
 # ===== PENDING BROADCASTS =====
-pending_broadcasts = {}  # admin_id: True -> kutmoqda xabar
+pending_broadcasts = {}
 
 # ===== INLINE MENU =====
 def main_menu(user_refs=0):
@@ -39,7 +38,7 @@ def main_menu(user_refs=0):
         [InlineKeyboardButton(text=f"🎓 Webinar ({user_refs}/{REQUIRED_REFERRALS})", callback_data="webinar")]
     ])
 
-# ===== SUBS CHECK =====
+# ===== CHECK SUBS =====
 async def check_subscription(user_id):
     try:
         member1 = await bot.get_chat_member(CHANNEL_1, user_id)
@@ -51,7 +50,10 @@ async def check_subscription(user_id):
 # ===== SEND WEBINAR LINK IF READY =====
 async def send_webinar_if_ready(user_id):
     cursor.execute("SELECT referrals, webinar_sent FROM users WHERE user_id=?", (user_id,))
-    refs, webinar_sent = cursor.fetchone()
+    row = cursor.fetchone()
+    if not row:
+        return
+    refs, webinar_sent = row
     if refs >= REQUIRED_REFERRALS and webinar_sent == 0:
         await bot.send_message(user_id, f"🎓 Siz {REQUIRED_REFERRALS} referral to‘pladingiz!\nWebinar linki:\n{WEBINAR_LINK}")
         cursor.execute("UPDATE users SET webinar_sent=1 WHERE user_id=?", (user_id,))
@@ -95,7 +97,6 @@ async def start(message: Message, command: CommandStart):
         reply_markup=main_menu(user_refs=refs)
     )
 
-    # check webinar automatically
     await send_webinar_if_ready(user_id)
 
 # ===== CHECK SUBS =====
